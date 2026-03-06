@@ -1,0 +1,34 @@
+[
+  {
+    "id": "tpl_ea62b80b0dea",
+    "name": "vn",
+    "imagePath": "/data/template_images/tpl_ea62b80b0dea.png",
+    "imageWidth": 2487,
+    "imageHeight": 3492,
+    "zones": [
+      {
+        "id": "bc95bdbf-11a6-47ed-9882-a98b940f8572",
+        "name": "bdc",
+        "type": "text",
+        "x": 1209,
+        "y": 222,
+        "width": 268,
+        "height": 82,
+        "required": false
+      },
+      {
+        "id": "78f9d1a2-ddcb-4e46-a1cb-9224295ab34d",
+        "name": "client",
+        "type": "text",
+        "x": 1225,
+        "y": 497,
+        "width": 191,
+        "height": 104,
+        "required": false
+      }
+    ],
+    "createdAt": "2026-03-06T22:17:23.545251+00:00",
+    "updatedAt": "2026-03-06T22:18:46.555250+00:00",
+    "version": 2
+  }
+]

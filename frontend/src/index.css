@@ -1,0 +1,369 @@
+:root {
+  --ink: #12324a;
+  --ink-soft: #4a6d83;
+  --surface: #f5f4ee;
+  --surface-2: #fffdf8;
+  --accent: #dd6d34;
+  --accent-soft: #f8d8c7;
+  --danger: #aa2e1f;
+  --line: #d7d3c8;
+  --shadow: 0 12px 34px rgba(24, 41, 56, 0.14);
+  font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(234, 164, 111, 0.22), transparent 30%),
+    radial-gradient(circle at 85% 10%, rgba(88, 170, 165, 0.22), transparent 34%),
+    linear-gradient(150deg, #ece7dd, #f8f7f3);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Fraunces', 'Georgia', serif;
+  font-weight: 600;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ghost {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.danger-link {
+  background: transparent;
+  color: var(--danger);
+  border-color: transparent;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.app-shell {
+  width: min(1180px, 100% - 2rem);
+  margin: 2rem auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.eyebrow {
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.tab.active {
+  background: var(--accent-soft);
+  border-color: #e2a88d;
+}
+
+.panel,
+.canvas-panel,
+.zones-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.template-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.template-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--line);
+}
+
+.template-card > div {
+  padding: 0 0.8rem;
+}
+
+.card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.8rem;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 340px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-toolbar {
+  display: grid;
+  gap: 0.8rem;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+input,
+select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0.5rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.canvas-panel p {
+  color: var(--ink-soft);
+  margin-top: 0.4rem;
+}
+
+.canvas {
+  margin-top: 0.8rem;
+  border: 1px dashed #9cb4c2;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  min-height: 260px;
+  background: #fcfcfc;
+}
+
+.canvas img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.zone {
+  position: absolute;
+  border: 2px solid #1b9aaa;
+  background: rgba(27, 154, 170, 0.16);
+  cursor: move;
+}
+
+.zone.active {
+  border-color: var(--accent);
+  background: rgba(221, 109, 52, 0.2);
+}
+
+.zone span {
+  display: inline-block;
+  background: rgba(18, 50, 74, 0.85);
+  color: #fff;
+  font-size: 0.76rem;
+  padding: 0.1rem 0.3rem;
+}
+
+.resize-handle {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid #fff;
+  background: var(--accent);
+  padding: 0;
+}
+
+.canvas-empty {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+}
+
+.zones-list {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+  max-height: 62vh;
+  overflow: auto;
+}
+
+.zone-item {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zone-item.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(221, 109, 52, 0.2);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.zone-meta {
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  font-size: 0.77rem;
+  color: var(--ink-soft);
+}
+
+.message {
+  color: var(--danger);
+}
+
+.extract-form {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: end;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.results-panel {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.alignment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.alignment-grid figure {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.alignment-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #f9f8f4;
+  display: block;
+}
+
+.alignment-grid figcaption {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  border: 1px solid var(--line);
+  text-align: left;
+  padding: 0.45rem;
+  vertical-align: top;
+}
+
+@media (max-width: 1080px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
