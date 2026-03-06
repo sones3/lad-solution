@@ -19,6 +19,7 @@ export async function createTemplate(payload: CreateTemplatePayload): Promise<Te
   formData.append('name', payload.name)
   formData.append('image', payload.image)
   formData.append('zones', JSON.stringify(payload.zones))
+  formData.append('useWolfBinarization', String(payload.useWolfBinarization))
 
   return request<Template>('/templates', {
     method: 'POST',

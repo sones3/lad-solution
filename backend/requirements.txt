@@ -5,3 +5,4 @@ numpy==2.2.6
 pytesseract==0.3.13
 python-multipart==0.0.20
 pydantic==2.11.7
+doxapy>=0.9.2

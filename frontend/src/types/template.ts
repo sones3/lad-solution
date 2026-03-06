@@ -26,6 +26,7 @@ export interface Template {
   imageWidth: number
   imageHeight: number
   zones: Zone[]
+  useWolfBinarization: boolean
   createdAt: string
   updatedAt: string
   version: number
@@ -35,11 +36,13 @@ export interface CreateTemplatePayload {
   name: string
   image: File
   zones: Zone[]
+  useWolfBinarization: boolean
 }
 
 export interface UpdateTemplatePayload {
   name: string
   zones: Zone[]
+  useWolfBinarization: boolean
 }
 
 export interface ExtractField {
@@ -82,6 +85,8 @@ export interface ExtractResponse {
     uploadedPath: string
     alignedPath?: string | null
     overlayPath?: string | null
+    templateBinarizedPath?: string | null
+    uploadedBinarizedPath?: string | null
   }
   debug: {
     imageWidth: number

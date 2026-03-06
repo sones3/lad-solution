@@ -9,6 +9,7 @@ Simple full-stack app for template-driven extraction:
 - See visual alignment previews (template, uploaded, aligned, overlay) after each extraction.
 - Extraction uses full-page word OCR on the aligned image, then keeps words whose boxes intersect each template zone.
 - Extraction screen includes a before/after slider (template vs aligned upload) and overlayed OCR/zone boxes for debugging.
+- You can enable Wolf binarization (doxapy) per template and see binarized template/uploaded previews during extraction.
 
 ## Stack
 
@@ -21,6 +22,7 @@ Simple full-stack app for template-driven extraction:
 - Node.js 20+
 - Python 3.10+
 - Tesseract OCR installed and available on `PATH`
+- `doxapy` (installed from `requirements.txt`) for Wolf binarization
 
 ## Run frontend
 
@@ -47,7 +49,7 @@ Backend runs at `http://localhost:8000`.
 ## API overview
 
 - `GET /health`
-- `POST /templates` (multipart: `name`, `zones` as JSON string, `image`)
+- `POST /templates` (multipart: `name`, `zones` as JSON string, `image`, `useWolfBinarization`)
 - `GET /templates`
 - `GET /templates/{template_id}`
 - `PUT /templates/{template_id}`

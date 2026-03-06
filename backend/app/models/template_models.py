@@ -35,6 +35,7 @@ class TemplateModel(BaseModel):
     imageWidth: int
     imageHeight: int
     zones: list[ZoneModel]
+    useWolfBinarization: bool = False
     createdAt: str
     updatedAt: str
     version: int = 1
@@ -59,6 +60,7 @@ class TemplateSummaryModel(BaseModel):
 class UpdateTemplatePayload(BaseModel):
     name: str
     zones: list[ZoneModel]
+    useWolfBinarization: bool = False
 
 
 class DeleteResponse(BaseModel):

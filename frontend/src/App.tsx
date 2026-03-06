@@ -79,17 +79,27 @@ function App() {
     name: string
     imageFile: File | null
     zones: Zone[]
+    useWolfBinarization: boolean
   }) => {
     setLoading(true)
     setMessage('')
     try {
       if (payload.id) {
-        await updateTemplate(payload.id, { name: payload.name, zones: payload.zones })
+        await updateTemplate(payload.id, {
+          name: payload.name,
+          zones: payload.zones,
+          useWolfBinarization: payload.useWolfBinarization,
+        })
       } else {
         if (!payload.imageFile) {
           throw new Error('Template image is required for new templates')
         }
-        await createTemplate({ name: payload.name, image: payload.imageFile, zones: payload.zones })
+        await createTemplate({
+          name: payload.name,
+          image: payload.imageFile,
+          zones: payload.zones,
+          useWolfBinarization: payload.useWolfBinarization,
+        })
       }
       setActiveTemplate(null)
       setView('templates')

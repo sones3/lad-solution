@@ -16,6 +16,7 @@ from app.models.extraction_models import (
     OCRWordBoxModel,
 )
 from app.models.template_models import TemplateModel
+from app.services.binarization import to_bgr, wolf_binarize
 from app.services.ocr_service import extract_zone_text_from_words, run_word_ocr
 from app.services.orb_align import align_document_to_template
 from app.storage.template_store import TemplateStore
@@ -63,6 +64,8 @@ def _save_preview_images(
     input_raw: bytes,
     input_extension: str,
     aligned_image: np.ndarray | None,
+    template_binarized: np.ndarray | None,
+    uploaded_binarized: np.ndarray | None,
     template_store: TemplateStore,
 ) -> AlignmentPreviewModel:
     run_id = uuid4().hex[:12]
@@ -72,6 +75,8 @@ def _save_preview_images(
 
     aligned_path_api: str | None = None
     overlay_path_api: str | None = None
+    template_binarized_path_api: str | None = None
+    uploaded_binarized_path_api: str | None = None
     if aligned_image is not None:
         aligned_name = f"{template.id}-{run_id}-aligned.png"
         aligned_path = template_store.debug_dir / aligned_name
@@ -84,11 +89,25 @@ def _save_preview_images(
         cv2.imwrite(str(overlay_path), overlay)
         overlay_path_api = f"/data/debug/{overlay_name}"
 
+    if template_binarized is not None:
+        template_bin_name = f"{template.id}-{run_id}-template-binarized.png"
+        template_bin_path = template_store.debug_dir / template_bin_name
+        cv2.imwrite(str(template_bin_path), template_binarized)
+        template_binarized_path_api = f"/data/debug/{template_bin_name}"
+
+    if uploaded_binarized is not None:
+        uploaded_bin_name = f"{template.id}-{run_id}-uploaded-binarized.png"
+        uploaded_bin_path = template_store.debug_dir / uploaded_bin_name
+        cv2.imwrite(str(uploaded_bin_path), uploaded_binarized)
+        uploaded_binarized_path_api = f"/data/debug/{uploaded_bin_name}"
+
     return AlignmentPreviewModel(
         templatePath=template.imagePath,
         uploadedPath=f"/data/uploads/{uploaded_name}",
         alignedPath=aligned_path_api,
         overlayPath=overlay_path_api,
+        templateBinarizedPath=template_binarized_path_api,
+        uploadedBinarizedPath=uploaded_binarized_path_api,
     )
 
 
@@ -106,15 +125,37 @@ def extract_indexes(
     template_image = _load_template_image(template, template_store)
     input_image, input_raw, input_extension = _decode_upload(image)
 
-    alignment_result = align_document_to_template(template_image=template_image, input_image=input_image)
+    template_for_alignment = template_image
+    input_for_alignment = input_image
+    template_binarized: np.ndarray | None = None
+    uploaded_binarized: np.ndarray | None = None
+    binarization_warning: str | None = None
+
+    if template.useWolfBinarization:
+        try:
+            template_binarized = wolf_binarize(template_image)
+            uploaded_binarized = wolf_binarize(input_image)
+            template_for_alignment = to_bgr(template_binarized)
+            input_for_alignment = to_bgr(uploaded_binarized)
+        except RuntimeError as exc:
+            binarization_warning = str(exc)
+
+    alignment_result = align_document_to_template(
+        template_image=template_for_alignment,
+        input_image=input_for_alignment,
+    )
+    if binarization_warning:
+        alignment_result.warnings.append(binarization_warning)
 
     if not alignment_result.success or alignment_result.aligned_image is None:
         preview = _save_preview_images(
             template=template,
-            template_image=template_image,
+            template_image=template_for_alignment,
             input_raw=input_raw,
             input_extension=input_extension,
             aligned_image=None,
+            template_binarized=template_binarized,
+            uploaded_binarized=uploaded_binarized,
             template_store=template_store,
         )
         return ExtractResponseModel(
@@ -140,10 +181,12 @@ def extract_indexes(
 
     preview = _save_preview_images(
         template=template,
-        template_image=template_image,
+        template_image=template_for_alignment,
         input_raw=input_raw,
         input_extension=input_extension,
         aligned_image=alignment_result.aligned_image,
+        template_binarized=template_binarized,
+        uploaded_binarized=uploaded_binarized,
         template_store=template_store,
     )
     matched_word_ids: set[int] = set()

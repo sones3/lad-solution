@@ -51,6 +51,8 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
 
   const comparisonTargetPath = result?.preview.alignedPath ?? result?.preview.uploadedPath ?? null
   const annotatedImagePath = result?.preview.alignedPath ?? null
+  const templateBinarizedPath = result?.preview.templateBinarizedPath ?? null
+  const uploadedBinarizedPath = result?.preview.uploadedBinarizedPath ?? null
   const debugImageWidth = result?.debug.imageWidth ?? 0
   const debugImageHeight = result?.debug.imageHeight ?? 0
   const canDrawOverlays =
@@ -154,6 +156,25 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
                 value={comparePosition}
                 onChange={(event) => setComparePosition(Number(event.target.value))}
               />
+            </section>
+          ) : null}
+
+          {templateBinarizedPath && uploadedBinarizedPath ? (
+            <section className="binarized-panel">
+              <div className="compare-head">
+                <h3>Wolf binarized previews</h3>
+                <p>Binarization applied on both template and uploaded images before alignment.</p>
+              </div>
+              <div className="binarized-grid">
+                <figure>
+                  <img src={buildApiUrl(templateBinarizedPath)} alt="Binarized template" />
+                  <figcaption>Template (Wolf)</figcaption>
+                </figure>
+                <figure>
+                  <img src={buildApiUrl(uploadedBinarizedPath)} alt="Binarized uploaded" />
+                  <figcaption>Uploaded (Wolf)</figcaption>
+                </figure>
+              </div>
             </section>
           ) : null}
 

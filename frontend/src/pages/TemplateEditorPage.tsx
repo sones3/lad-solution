@@ -7,7 +7,13 @@ import type { Template, Zone } from '../types/template'
 interface TemplateEditorPageProps {
   loading: boolean
   initialTemplate: Template | null
-  onSave: (payload: { id?: string; name: string; imageFile: File | null; zones: Zone[] }) => Promise<void>
+  onSave: (payload: {
+    id?: string
+    name: string
+    imageFile: File | null
+    zones: Zone[]
+    useWolfBinarization: boolean
+  }) => Promise<void>
   onCancel: () => void
 }
 
@@ -22,6 +28,9 @@ export function TemplateEditorPage({
   const [zones, setZones] = useState<Zone[]>(initialTemplate?.zones ?? [])
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
   const [localMessage, setLocalMessage] = useState('')
+  const [useWolfBinarization, setUseWolfBinarization] = useState(
+    initialTemplate?.useWolfBinarization ?? false,
+  )
   const objectUrl = useMemo(() => {
     if (!imageFile) {
       return null
@@ -74,6 +83,7 @@ export function TemplateEditorPage({
       name: trimmedName,
       imageFile,
       zones: zones.map((zone) => ({ ...zone, name: zone.name.trim() })),
+      useWolfBinarization,
     })
   }
 
@@ -100,6 +110,14 @@ export function TemplateEditorPage({
             }}
           />
         </label>
+
+        <button
+          type="button"
+          className={useWolfBinarization ? '' : 'ghost'}
+          onClick={() => setUseWolfBinarization((value) => !value)}
+        >
+          Wolf binarization: {useWolfBinarization ? 'Enabled' : 'Disabled'}
+        </button>
 
         <div className="toolbar-actions">
           <button type="button" onClick={handleSave} disabled={loading}>

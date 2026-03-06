@@ -63,6 +63,7 @@ def _validate_zone_bounds(zones: list[ZoneModel], image_width: int, image_height
 def create_template(
     name: str = Form(...),
     zones: str = Form(...),
+    useWolfBinarization: bool = Form(default=False),
     image: UploadFile = File(...),
     template_store: TemplateStore = Depends(get_store),
 ) -> TemplateModel:
@@ -93,6 +94,7 @@ def create_template(
         imageWidth=image_width,
         imageHeight=image_height,
         zones=zone_models,
+        useWolfBinarization=useWolfBinarization,
         createdAt=now,
         updatedAt=now,
         version=1,
@@ -144,6 +146,7 @@ def update_template(
         update={
             "name": payload.name.strip(),
             "zones": payload.zones,
+            "useWolfBinarization": payload.useWolfBinarization,
             "updatedAt": utc_now_iso(),
             "version": current.version + 1,
         }

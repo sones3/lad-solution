@@ -22,6 +22,8 @@ class AlignmentPreviewModel(BaseModel):
     uploadedPath: str
     alignedPath: str | None = None
     overlayPath: str | None = None
+    templateBinarizedPath: str | None = None
+    uploadedBinarizedPath: str | None = None
 
 
 class OCRWordBoxModel(BaseModel):

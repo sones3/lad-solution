@@ -328,6 +328,13 @@ select {
   padding: 0.75rem;
 }
 
+.binarized-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.75rem;
+}
+
 .compare-panel {
   width: min(520px, 92vw);
   margin-inline: auto;
@@ -340,6 +347,35 @@ select {
   padding: 0.75rem;
   display: grid;
   gap: 0.55rem;
+}
+
+.binarized-grid {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.binarized-grid figure {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.binarized-grid img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+  background: #f9f8f4;
+}
+
+.binarized-grid figcaption {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .ocr-transcript {
