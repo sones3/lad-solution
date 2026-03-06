@@ -21,14 +21,34 @@
         "name": "client",
         "type": "text",
         "x": 1225,
-        "y": 497,
+        "y": 492,
         "width": 191,
         "height": 104,
+        "required": false
+      },
+      {
+        "id": "6c90352c-313c-40d3-a32f-15b7dc6d3b97",
+        "name": "client_name",
+        "type": "text",
+        "x": 436,
+        "y": 755,
+        "width": 383,
+        "height": 71,
+        "required": false
+      },
+      {
+        "id": "b19b578f-da0e-4ec6-abad-1f1a4418cb31",
+        "name": "distributor",
+        "type": "text",
+        "x": 1669,
+        "y": 611,
+        "width": 672,
+        "height": 93,
         "required": false
       }
     ],
     "createdAt": "2026-03-06T22:17:23.545251+00:00",
-    "updatedAt": "2026-03-06T22:18:46.555250+00:00",
-    "version": 2
+    "updatedAt": "2026-03-06T23:18:52.150396+00:00",
+    "version": 5
   }
 ]

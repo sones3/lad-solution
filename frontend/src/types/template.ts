@@ -53,6 +53,20 @@ export interface ExtractField {
     height: number
   }
   warning?: string
+  matchedWordIds: number[]
+}
+
+export interface OCRWordBox {
+  id: number
+  text: string
+  confidence: number
+  matched: boolean
+  bbox: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
 }
 
 export interface ExtractResponse {
@@ -68,6 +82,11 @@ export interface ExtractResponse {
     uploadedPath: string
     alignedPath?: string | null
     overlayPath?: string | null
+  }
+  debug: {
+    imageWidth: number
+    imageHeight: number
+    ocrWords: OCRWordBox[]
   }
   fields: ExtractField[]
   errors: string[]

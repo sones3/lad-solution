@@ -7,6 +7,8 @@ Simple full-stack app for template-driven extraction:
 - Save templates locally.
 - Upload a new image and extract fields by aligning it to the template with ORB.
 - See visual alignment previews (template, uploaded, aligned, overlay) after each extraction.
+- Extraction uses full-page word OCR on the aligned image, then keeps words whose boxes intersect each template zone.
+- Extraction screen includes a before/after slider (template vs aligned upload) and overlayed OCR/zone boxes for debugging.
 
 ## Stack
 

@@ -10,13 +10,14 @@ from app.models.extraction_models import (
     AlignmentModel,
     AlignmentPreviewModel,
     BoundingBoxModel,
+    ExtractionDebugModel,
     ExtractResponseModel,
     FieldExtractionModel,
+    OCRWordBoxModel,
 )
 from app.models.template_models import TemplateModel
-from app.services.ocr_service import run_ocr
+from app.services.ocr_service import extract_zone_text_from_words, run_word_ocr
 from app.services.orb_align import align_document_to_template
-from app.services.zone_extract import extract_zone
 from app.storage.template_store import TemplateStore
 
 router = APIRouter(tags=["extraction"])
@@ -107,16 +108,15 @@ def extract_indexes(
 
     alignment_result = align_document_to_template(template_image=template_image, input_image=input_image)
 
-    preview = _save_preview_images(
-        template=template,
-        template_image=template_image,
-        input_raw=input_raw,
-        input_extension=input_extension,
-        aligned_image=alignment_result.aligned_image,
-        template_store=template_store,
-    )
-
     if not alignment_result.success or alignment_result.aligned_image is None:
+        preview = _save_preview_images(
+            template=template,
+            template_image=template_image,
+            input_raw=input_raw,
+            input_extension=input_extension,
+            aligned_image=None,
+            template_store=template_store,
+        )
         return ExtractResponseModel(
             templateId=template.id,
             alignment=AlignmentModel(
@@ -126,6 +126,7 @@ def extract_indexes(
                 warnings=alignment_result.warnings,
             ),
             preview=preview,
+            debug=ExtractionDebugModel(imageWidth=0, imageHeight=0, ocrWords=[]),
             fields=[],
             errors=[alignment_result.error or "Alignment failed"],
         )
@@ -135,11 +136,32 @@ def extract_indexes(
         debug_path = template_store.debug_dir / debug_name
         cv2.imwrite(str(debug_path), alignment_result.aligned_image)
 
+    words, ocr_error = run_word_ocr(alignment_result.aligned_image)
+
+    preview = _save_preview_images(
+        template=template,
+        template_image=template_image,
+        input_raw=input_raw,
+        input_extension=input_extension,
+        aligned_image=alignment_result.aligned_image,
+        template_store=template_store,
+    )
+    matched_word_ids: set[int] = set()
+
     fields: list[FieldExtractionModel] = []
     errors: list[str] = []
+    if ocr_error:
+        errors.append(ocr_error)
+
     for zone in template.zones:
-        roi = extract_zone(alignment_result.aligned_image, zone)
-        text, confidence, warning = run_ocr(roi, zone.type)
+        if ocr_error:
+            zone_result = ("", 0.0, ocr_error, [])
+        else:
+            zone_result = extract_zone_text_from_words(zone=zone, words=words)
+
+        text, confidence, warning, zone_word_ids = zone_result
+        matched_word_ids.update(zone_word_ids)
+
         if zone.required and not text:
             errors.append(f"Required field '{zone.name}' is empty")
 
@@ -155,8 +177,25 @@ def extract_indexes(
                     height=zone.height,
                 ),
                 warning=warning,
+                matchedWordIds=zone_word_ids,
             )
         )
+
+    image_height, image_width = alignment_result.aligned_image.shape[:2]
+    debug_payload = ExtractionDebugModel(
+        imageWidth=image_width,
+        imageHeight=image_height,
+        ocrWords=[
+            OCRWordBoxModel(
+                id=word.id,
+                text=word.text,
+                confidence=word.confidence,
+                bbox=BoundingBoxModel(x=word.x, y=word.y, width=word.width, height=word.height),
+                matched=word.id in matched_word_ids,
+            )
+            for word in words
+        ],
+    )
 
     return ExtractResponseModel(
         templateId=template.id,
@@ -167,6 +206,7 @@ def extract_indexes(
             warnings=alignment_result.warnings,
         ),
         preview=preview,
+        debug=debug_payload,
         fields=fields,
         errors=errors,
     )

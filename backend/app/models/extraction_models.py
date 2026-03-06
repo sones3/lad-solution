@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BoundingBoxModel(BaseModel):
@@ -24,17 +24,33 @@ class AlignmentPreviewModel(BaseModel):
     overlayPath: str | None = None
 
 
+class OCRWordBoxModel(BaseModel):
+    id: int
+    text: str
+    confidence: float
+    bbox: BoundingBoxModel
+    matched: bool = False
+
+
+class ExtractionDebugModel(BaseModel):
+    imageWidth: int
+    imageHeight: int
+    ocrWords: list[OCRWordBoxModel]
+
+
 class FieldExtractionModel(BaseModel):
     zoneName: str
     text: str
     confidence: float
     bbox: BoundingBoxModel
     warning: str | None = None
+    matchedWordIds: list[int] = Field(default_factory=list)
 
 
 class ExtractResponseModel(BaseModel):
     templateId: str
     alignment: AlignmentModel
     preview: AlignmentPreviewModel
+    debug: ExtractionDebugModel
     fields: list[FieldExtractionModel]
     errors: list[str]

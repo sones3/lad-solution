@@ -7,12 +7,26 @@ interface ExtractionPageProps {
   onExtract: (templateId: string, file: File) => Promise<ExtractResponse>
 }
 
+function getBoxStyle(
+  bbox: { x: number; y: number; width: number; height: number },
+  imageWidth: number,
+  imageHeight: number,
+) {
+  return {
+    left: `${(bbox.x / imageWidth) * 100}%`,
+    top: `${(bbox.y / imageHeight) * 100}%`,
+    width: `${(bbox.width / imageWidth) * 100}%`,
+    height: `${(bbox.height / imageHeight) * 100}%`,
+  }
+}
+
 export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
   const [templateId, setTemplateId] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<ExtractResponse | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [comparePosition, setComparePosition] = useState(50)
 
   const canRun = useMemo(() => templateId !== '' && file !== null, [file, templateId])
 
@@ -24,6 +38,7 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
     setLoading(true)
     setError('')
     setResult(null)
+    setComparePosition(50)
     try {
       const extraction = await onExtract(templateId, file)
       setResult(extraction)
@@ -33,6 +48,37 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
       setLoading(false)
     }
   }
+
+  const comparisonTargetPath = result?.preview.alignedPath ?? result?.preview.uploadedPath ?? null
+  const annotatedImagePath = result?.preview.alignedPath ?? null
+  const debugImageWidth = result?.debug.imageWidth ?? 0
+  const debugImageHeight = result?.debug.imageHeight ?? 0
+  const canDrawOverlays =
+    Boolean(annotatedImagePath) && debugImageWidth > 0 && debugImageHeight > 0
+
+  const matchedWordsByField = useMemo(() => {
+    if (!result) {
+      return new Map<string, string>()
+    }
+
+    const wordsById = new Map(result.debug.ocrWords.map((word) => [word.id, word]))
+    const data = new Map<string, string>()
+    for (const field of result.fields) {
+      const text = field.matchedWordIds
+        .map((wordId) => wordsById.get(wordId)?.text)
+        .filter((value): value is string => Boolean(value))
+        .join(' ')
+      data.set(field.zoneName, text)
+    }
+    return data
+  }, [result])
+
+  const fullPageOcrText = useMemo(() => {
+    if (!result) {
+      return ''
+    }
+    return result.debug.ocrWords.map((word) => word.text).join(' ')
+  }, [result])
 
   return (
     <main className="panel">
@@ -83,28 +129,109 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
             </ul>
           ) : null}
 
-          <div className="alignment-grid">
-            <figure>
-              <img src={buildApiUrl(result.preview.templatePath)} alt="Template reference" />
-              <figcaption>Template</figcaption>
-            </figure>
-            <figure>
-              <img src={buildApiUrl(result.preview.uploadedPath)} alt="Uploaded document" />
-              <figcaption>Uploaded</figcaption>
-            </figure>
-            {result.preview.alignedPath ? (
-              <figure>
-                <img src={buildApiUrl(result.preview.alignedPath)} alt="Aligned uploaded document" />
-                <figcaption>Aligned to template</figcaption>
-              </figure>
-            ) : null}
-            {result.preview.overlayPath ? (
-              <figure>
-                <img src={buildApiUrl(result.preview.overlayPath)} alt="Template and aligned overlay" />
-                <figcaption>Overlay check</figcaption>
-              </figure>
-            ) : null}
-          </div>
+          {comparisonTargetPath ? (
+            <section className="compare-panel">
+              <div className="compare-head">
+                <h3>Before / after alignment</h3>
+                <p>Slide to compare template and uploaded (aligned) document.</p>
+              </div>
+              <div className="compare-stage">
+                <div className="compare-layer">
+                  <img src={buildApiUrl(result.preview.templatePath)} alt="Template" />
+                </div>
+                <div
+                  className="compare-layer compare-layer-top"
+                  style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
+                >
+                  <img src={buildApiUrl(comparisonTargetPath)} alt="Uploaded aligned" />
+                </div>
+                <div className="compare-divider" style={{ left: `${comparePosition}%` }} />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={comparePosition}
+                onChange={(event) => setComparePosition(Number(event.target.value))}
+              />
+            </section>
+          ) : null}
+
+          <section className="annotated-panel">
+            <div className="compare-head">
+              <h3>Uploaded image with overlays</h3>
+              <p>
+                Cyan: OCR word boxes | Orange: extraction rectangles
+                {canDrawOverlays ? '' : ' (shown once alignment succeeds)'}
+              </p>
+            </div>
+            {annotatedImagePath ? (
+              <div
+                className="annotated-stage"
+                style={{
+                  aspectRatio: canDrawOverlays
+                    ? `${result.debug.imageWidth} / ${result.debug.imageHeight}`
+                    : undefined,
+                }}
+              >
+                <img src={buildApiUrl(annotatedImagePath)} alt="Aligned uploaded document" />
+
+                {canDrawOverlays ? (
+                  <div className="annotated-overlay">
+                    {result.debug.ocrWords.map((word) => (
+                      <div
+                        key={word.id}
+                        className={word.matched ? 'ocr-word matched' : 'ocr-word'}
+                        style={getBoxStyle(word.bbox, result.debug.imageWidth, result.debug.imageHeight)}
+                        title={`${word.text} (${(word.confidence * 100).toFixed(1)}%)`}
+                      />
+                    ))}
+
+                    {result.fields.map((field) => (
+                      <div
+                        key={field.zoneName}
+                        className="zone-box"
+                        style={getBoxStyle(field.bbox, result.debug.imageWidth, result.debug.imageHeight)}
+                        title={field.zoneName}
+                      >
+                        <span>{field.zoneName}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p>No aligned preview available.</p>
+            )}
+          </section>
+
+          <section className="ocr-debug-panel">
+            <h3>OCR text (full page)</h3>
+            <p className="ocr-transcript">{fullPageOcrText || '(no OCR words detected)'}</p>
+            <details>
+              <summary>Show OCR word list</summary>
+              <table className="ocr-words-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Text</th>
+                    <th>Confidence</th>
+                    <th>Matched</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.debug.ocrWords.map((word) => (
+                    <tr key={word.id}>
+                      <td>{word.id}</td>
+                      <td>{word.text}</td>
+                      <td>{(word.confidence * 100).toFixed(1)}%</td>
+                      <td>{word.matched ? 'yes' : 'no'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </section>
 
           {result.errors.length > 0 ? (
             <>
@@ -123,7 +250,9 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
               <tr>
                 <th>Zone</th>
                 <th>Text</th>
+                <th>Matched OCR text</th>
                 <th>Confidence</th>
+                <th>Words</th>
                 <th>Warning</th>
               </tr>
             </thead>
@@ -132,7 +261,9 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
                 <tr key={field.zoneName}>
                   <td>{field.zoneName}</td>
                   <td>{field.text || <em>(empty)</em>}</td>
+                  <td>{matchedWordsByField.get(field.zoneName) || <em>(none)</em>}</td>
                   <td>{field.confidence.toFixed(2)}</td>
+                  <td>{field.matchedWordIds.length}</td>
                   <td>{field.warning ?? '-'}</td>
                 </tr>
               ))}
