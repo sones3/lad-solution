@@ -4,7 +4,11 @@ import type { ExtractResponse, TemplateSummary } from '../types/template'
 
 interface ExtractionPageProps {
   templates: TemplateSummary[]
-  onExtract: (templateId: string, file: File) => Promise<ExtractResponse>
+  onExtract: (
+    templateId: string,
+    file: File,
+    ocrEngine: 'tesseract' | 'paddleocr',
+  ) => Promise<ExtractResponse>
 }
 
 function getBoxStyle(
@@ -27,6 +31,7 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [comparePosition, setComparePosition] = useState(50)
+  const [ocrEngine, setOcrEngine] = useState<'tesseract' | 'paddleocr'>('tesseract')
 
   const canRun = useMemo(() => templateId !== '' && file !== null, [file, templateId])
 
@@ -40,7 +45,7 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
     setResult(null)
     setComparePosition(50)
     try {
-      const extraction = await onExtract(templateId, file)
+      const extraction = await onExtract(templateId, file, ocrEngine)
       setResult(extraction)
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : 'Extraction failed')
@@ -101,6 +106,17 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
         </label>
 
         <label>
+          OCR engine
+          <select
+            value={ocrEngine}
+            onChange={(event) => setOcrEngine(event.target.value as 'tesseract' | 'paddleocr')}
+          >
+            <option value="tesseract">Tesseract</option>
+            <option value="paddleocr">PaddleOCR v5 mobile (fr)</option>
+          </select>
+        </label>
+
+        <label>
           Document image
           <input
             type="file"
@@ -122,6 +138,9 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
           <p>
             Success: <strong>{result.alignment.success ? 'yes' : 'no'}</strong> | Matches:{' '}
             {result.alignment.matchesUsed} | Inlier ratio: {result.alignment.inlierRatio.toFixed(3)}
+          </p>
+          <p>
+            OCR engine: <strong>{result.ocrEngine}</strong>
           </p>
           {result.alignment.warnings.length > 0 ? (
             <ul>

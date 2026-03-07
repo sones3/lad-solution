@@ -10,6 +10,8 @@ Simple full-stack app for template-driven extraction:
 - Extraction uses full-page word OCR on the aligned image, then keeps words whose boxes intersect each template zone.
 - Extraction screen includes a before/after slider (template vs aligned upload) and overlayed OCR/zone boxes for debugging.
 - You can enable Wolf binarization (doxapy) per template and see binarized template/uploaded previews during extraction.
+- You can choose OCR engine at extraction time: `tesseract` or `PaddleOCR v5 mobile (fr)`.
+- PaddleOCR is initialized once on backend startup and reused for extraction requests.
 
 ## Stack
 
@@ -23,6 +25,9 @@ Simple full-stack app for template-driven extraction:
 - Python 3.10+
 - Tesseract OCR installed and available on `PATH`
 - `doxapy` (installed from `requirements.txt`) for Wolf binarization
+- PaddleOCR runtime dependencies from `requirements.txt` (`paddleocr`, `paddlepaddle`)
+  - oneDNN is enabled for faster PaddleOCR CPU inference.
+  - PaddleOCR input is downscaled before prediction for better latency.
 
 ## Run frontend
 
@@ -55,6 +60,7 @@ Backend runs at `http://localhost:8000`.
 - `PUT /templates/{template_id}`
 - `DELETE /templates/{template_id}`
 - `POST /extract` (multipart: `templateId`, `image`, optional `debug`)
+- `POST /extract` (multipart: `templateId`, `image`, `ocrEngine`, optional `debug`)
 
 ## Notes
 

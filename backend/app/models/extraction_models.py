@@ -51,6 +51,7 @@ class FieldExtractionModel(BaseModel):
 
 class ExtractResponseModel(BaseModel):
     templateId: str
+    ocrEngine: str
     alignment: AlignmentModel
     preview: AlignmentPreviewModel
     debug: ExtractionDebugModel

@@ -20,8 +20,8 @@
         "id": "78f9d1a2-ddcb-4e46-a1cb-9224295ab34d",
         "name": "client",
         "type": "text",
-        "x": 1225,
-        "y": 492,
+        "x": 1231,
+        "y": 486,
         "width": 191,
         "height": 104,
         "required": false
@@ -49,8 +49,8 @@
     ],
     "useWolfBinarization": true,
     "createdAt": "2026-03-06T22:17:23.545251+00:00",
-    "updatedAt": "2026-03-06T23:31:51.830826+00:00",
-    "version": 6
+    "updatedAt": "2026-03-07T00:17:19.219049+00:00",
+    "version": 7
   },
   {
     "id": "tpl_c670b7f11045",
@@ -82,7 +82,7 @@
     ],
     "useWolfBinarization": true,
     "createdAt": "2026-03-06T23:36:03.698219+00:00",
-    "updatedAt": "2026-03-06T23:37:19.429937+00:00",
-    "version": 2
+    "updatedAt": "2026-03-07T00:51:52.388807+00:00",
+    "version": 7
   }
 ]

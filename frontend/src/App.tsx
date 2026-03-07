@@ -111,8 +111,12 @@ function App() {
     }
   }
 
-  const handleExtract = async (templateId: string, file: File): Promise<ExtractResponse> => {
-    return extractFromTemplate(templateId, file)
+  const handleExtract = async (
+    templateId: string,
+    file: File,
+    ocrEngine: 'tesseract' | 'paddleocr',
+  ): Promise<ExtractResponse> => {
+    return extractFromTemplate(templateId, file, ocrEngine)
   }
 
   return (

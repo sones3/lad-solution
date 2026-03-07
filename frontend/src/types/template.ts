@@ -74,6 +74,7 @@ export interface OCRWordBox {
 
 export interface ExtractResponse {
   templateId: string
+  ocrEngine: string
   alignment: {
     success: boolean
     inlierRatio: number

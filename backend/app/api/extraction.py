@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
 
 import cv2
@@ -17,8 +18,9 @@ from app.models.extraction_models import (
 )
 from app.models.template_models import TemplateModel
 from app.services.binarization import to_bgr, wolf_binarize
-from app.services.ocr_service import extract_zone_text_from_words, run_word_ocr
+from app.services.ocr_service import OCREngine, extract_zone_text_from_words, run_word_ocr
 from app.services.orb_align import align_document_to_template
+from app.services.paddle_engine import get_paddle_ocr
 from app.storage.template_store import TemplateStore
 
 router = APIRouter(tags=["extraction"])
@@ -115,9 +117,15 @@ def _save_preview_images(
 def extract_indexes(
     templateId: str = Form(...),
     image: UploadFile = File(...),
+    ocrEngine: str = Form(default="tesseract"),
     debug: bool = Form(default=False),
     template_store: TemplateStore = Depends(get_store),
 ) -> ExtractResponseModel:
+    selected_ocr_engine_raw = ocrEngine.strip().lower()
+    if selected_ocr_engine_raw not in {"tesseract", "paddleocr"}:
+        raise HTTPException(status_code=400, detail="ocrEngine must be 'tesseract' or 'paddleocr'")
+    selected_ocr_engine = cast(OCREngine, selected_ocr_engine_raw)
+
     template = template_store.get_template(templateId)
     if template is None:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -160,6 +168,7 @@ def extract_indexes(
         )
         return ExtractResponseModel(
             templateId=template.id,
+            ocrEngine=selected_ocr_engine,
             alignment=AlignmentModel(
                 success=False,
                 inlierRatio=alignment_result.inlier_ratio,
@@ -177,7 +186,13 @@ def extract_indexes(
         debug_path = template_store.debug_dir / debug_name
         cv2.imwrite(str(debug_path), alignment_result.aligned_image)
 
-    words, ocr_error = run_word_ocr(alignment_result.aligned_image)
+    paddle_ocr, paddle_init_error = get_paddle_ocr()
+    words, ocr_error = run_word_ocr(
+        alignment_result.aligned_image,
+        engine=selected_ocr_engine,
+        paddle_ocr=paddle_ocr,
+        paddle_init_error=paddle_init_error,
+    )
 
     preview = _save_preview_images(
         template=template,
@@ -205,7 +220,7 @@ def extract_indexes(
         text, confidence, warning, zone_word_ids = zone_result
         matched_word_ids.update(zone_word_ids)
 
-        if zone.required and not text:
+        if not ocr_error and zone.required and not text:
             errors.append(f"Required field '{zone.name}' is empty")
 
         fields.append(
@@ -242,6 +257,7 @@ def extract_indexes(
 
     return ExtractResponseModel(
         templateId=template.id,
+        ocrEngine=selected_ocr_engine,
         alignment=AlignmentModel(
             success=True,
             inlierRatio=alignment_result.inlier_ratio,

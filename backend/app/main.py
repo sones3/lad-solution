@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.extraction import router as extraction_router
 from app.api.health import router as health_router
 from app.api.templates import router as templates_router
+from app.services.paddle_engine import initialize_paddle_ocr
 from app.storage.template_store import TemplateStore
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,11 @@ app.add_middleware(
 )
 
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
+
+
+@app.on_event("startup")
+def startup_event() -> None:
+    initialize_paddle_ocr()
 
 app.include_router(health_router)
 app.include_router(templates_router)
