@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildApiUrl } from '../api/client'
+import { IgnoreRegionCanvas } from '../components/IgnoreRegionCanvas'
+import { IgnoreRegionList } from '../components/IgnoreRegionList'
 import { ImageCanvas } from '../components/ImageCanvas'
 import { ZoneList } from '../components/ZoneList'
-import type { Template, Zone } from '../types/template'
+import type { IgnoreRegion, Template, Zone } from '../types/template'
+
+type EditorMode = 'zones' | 'paperIgnoreRegions'
 
 interface TemplateEditorPageProps {
   loading: boolean
@@ -12,6 +16,7 @@ interface TemplateEditorPageProps {
     name: string
     imageFile: File | null
     zones: Zone[]
+    paperIgnoreRegions: IgnoreRegion[]
     useWolfBinarization: boolean
   }) => Promise<void>
   onCancel: () => void
@@ -26,8 +31,13 @@ export function TemplateEditorPage({
   const [name, setName] = useState(initialTemplate?.name ?? '')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [zones, setZones] = useState<Zone[]>(initialTemplate?.zones ?? [])
+  const [paperIgnoreRegions, setPaperIgnoreRegions] = useState<IgnoreRegion[]>(
+    initialTemplate?.paperIgnoreRegions ?? [],
+  )
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
+  const [selectedIgnoreRegionId, setSelectedIgnoreRegionId] = useState<string | null>(null)
   const [localMessage, setLocalMessage] = useState('')
+  const [editorMode, setEditorMode] = useState<EditorMode>('zones')
   const [useWolfBinarization, setUseWolfBinarization] = useState(
     initialTemplate?.useWolfBinarization ?? false,
   )
@@ -47,6 +57,9 @@ export function TemplateEditorPage({
   }, [objectUrl])
 
   const imageUrl = objectUrl ?? (initialTemplate?.imagePath ? buildApiUrl(initialTemplate.imagePath) : null)
+  const saveMessage = loading
+    ? 'Saving template and rebuilding paper features. Check backend logs for percentage progress.'
+    : ''
 
   const handleSave = async () => {
     const trimmedName = name.trim()
@@ -77,12 +90,27 @@ export function TemplateEditorPage({
       usedNames.add(zoneName)
     }
 
+    const usedIgnoreRegionNames = new Set<string>()
+    for (const region of paperIgnoreRegions) {
+      const regionName = region.name.trim()
+      if (!regionName) {
+        setLocalMessage('Every paper ignore region must have a name')
+        return
+      }
+      if (usedIgnoreRegionNames.has(regionName)) {
+        setLocalMessage(`Duplicate paper ignore region name: ${regionName}`)
+        return
+      }
+      usedIgnoreRegionNames.add(regionName)
+    }
+
     setLocalMessage('')
     await onSave({
       id: initialTemplate?.id,
       name: trimmedName,
       imageFile,
       zones: zones.map((zone) => ({ ...zone, name: zone.name.trim() })),
+      paperIgnoreRegions: paperIgnoreRegions.map((region) => ({ ...region, name: region.name.trim() })),
       useWolfBinarization,
     })
   }
@@ -119,6 +147,23 @@ export function TemplateEditorPage({
           Wolf binarization: {useWolfBinarization ? 'Enabled' : 'Disabled'}
         </button>
 
+        <div className="mode-switch" role="tablist" aria-label="Template editor mode">
+          <button
+            type="button"
+            className={editorMode === 'zones' ? 'tab active' : 'tab'}
+            onClick={() => setEditorMode('zones')}
+          >
+            Extraction zones
+          </button>
+          <button
+            type="button"
+            className={editorMode === 'paperIgnoreRegions' ? 'tab active' : 'tab'}
+            onClick={() => setEditorMode('paperIgnoreRegions')}
+          >
+            Paper ignore regions
+          </button>
+        </div>
+
         <div className="toolbar-actions">
           <button type="button" onClick={handleSave} disabled={loading}>
             {loading ? 'Saving...' : 'Save template'}
@@ -129,22 +174,44 @@ export function TemplateEditorPage({
         </div>
 
         {localMessage ? <p className="message">{localMessage}</p> : null}
+        {saveMessage ? <p className="message">{saveMessage}</p> : null}
       </section>
 
-      <ImageCanvas
-        imageUrl={imageUrl}
-        zones={zones}
-        selectedZoneId={selectedZoneId}
-        onSelectZone={setSelectedZoneId}
-        onChangeZones={setZones}
-      />
+      {editorMode === 'zones' ? (
+        <>
+          <ImageCanvas
+            imageUrl={imageUrl}
+            zones={zones}
+            selectedZoneId={selectedZoneId}
+            onSelectZone={setSelectedZoneId}
+            onChangeZones={setZones}
+          />
 
-      <ZoneList
-        zones={zones}
-        selectedZoneId={selectedZoneId}
-        onSelect={(id) => setSelectedZoneId(id)}
-        onChange={setZones}
-      />
+          <ZoneList
+            zones={zones}
+            selectedZoneId={selectedZoneId}
+            onSelect={(id) => setSelectedZoneId(id)}
+            onChange={setZones}
+          />
+        </>
+      ) : (
+        <>
+          <IgnoreRegionCanvas
+            imageUrl={imageUrl}
+            regions={paperIgnoreRegions}
+            selectedRegionId={selectedIgnoreRegionId}
+            onSelectRegion={setSelectedIgnoreRegionId}
+            onChangeRegions={setPaperIgnoreRegions}
+          />
+
+          <IgnoreRegionList
+            regions={paperIgnoreRegions}
+            selectedRegionId={selectedIgnoreRegionId}
+            onSelect={(id) => setSelectedIgnoreRegionId(id)}
+            onChange={setPaperIgnoreRegions}
+          />
+        </>
+      )}
     </main>
   )
 }

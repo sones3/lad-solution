@@ -47,10 +47,31 @@
         "required": false
       }
     ],
+    "paperIgnoreRegions": [
+      {
+        "id": "529a71ae-2d26-4c7e-89c0-1312f0e419ff",
+        "name": "ignore_1",
+        "x": 71,
+        "y": 107,
+        "width": 810,
+        "height": 581
+      }
+    ],
+    "paperFeatureArtifact": {
+      "detector": "orb",
+      "artifactPath": "/data/template_features/tpl_ea62b80b0dea-paper-orb.npz",
+      "maxKeypoints": 300,
+      "epsilon": 5,
+      "synthesizedImageCount": 1000,
+      "buildWidth": 997,
+      "buildHeight": 1400,
+      "createdAt": "2026-03-12T10:34:20.048049+00:00",
+      "version": 1
+    },
     "useWolfBinarization": true,
     "createdAt": "2026-03-06T22:17:23.545251+00:00",
-    "updatedAt": "2026-03-07T00:17:19.219049+00:00",
-    "version": 7
+    "updatedAt": "2026-03-12T10:31:45.930861+00:00",
+    "version": 9
   },
   {
     "id": "tpl_c670b7f11045",
@@ -84,5 +105,57 @@
     "createdAt": "2026-03-06T23:36:03.698219+00:00",
     "updatedAt": "2026-03-07T00:51:52.388807+00:00",
     "version": 7
+  },
+  {
+    "id": "tpl_c1fcd370525a",
+    "name": "BL",
+    "imagePath": "/data/template_images/tpl_c1fcd370525a.jpg",
+    "imageWidth": 1245,
+    "imageHeight": 1769,
+    "zones": [
+      {
+        "id": "7b94226c-d292-46da-bd71-e23763d95cdb",
+        "name": "field_1",
+        "type": "text",
+        "x": 364,
+        "y": 529,
+        "width": 372,
+        "height": 84,
+        "required": false
+      }
+    ],
+    "paperIgnoreRegions": [
+      {
+        "id": "3757f1bf-a525-43f5-9f30-241ef3090714",
+        "name": "ignore_1",
+        "x": 90,
+        "y": 57,
+        "width": 368,
+        "height": 255
+      },
+      {
+        "id": "32db2569-4126-4cbb-b4ba-55a05eb8adb0",
+        "name": "ignore_2",
+        "x": 1019,
+        "y": 26,
+        "width": 200,
+        "height": 140
+      }
+    ],
+    "paperFeatureArtifact": {
+      "detector": "orb",
+      "artifactPath": "/data/template_features/tpl_c1fcd370525a-paper-orb.npz",
+      "maxKeypoints": 300,
+      "epsilon": 5,
+      "synthesizedImageCount": 1000,
+      "buildWidth": 985,
+      "buildHeight": 1400,
+      "createdAt": "2026-03-12T15:00:11.022936+00:00",
+      "version": 1
+    },
+    "useWolfBinarization": false,
+    "createdAt": "2026-03-12T14:24:24.018511+00:00",
+    "updatedAt": "2026-03-12T14:57:19.266583+00:00",
+    "version": 3
   }
 ]

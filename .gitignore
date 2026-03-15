@@ -3,6 +3,7 @@ frontend/dist/
 frontend/.vite/
 
 backend/.venv/
+backend/venv/
 backend/__pycache__/
 backend/app/**/__pycache__/
 backend/data/template_images/*
@@ -11,3 +12,5 @@ backend/data/debug/*
 !backend/data/template_images/.gitkeep
 !backend/data/uploads/.gitkeep
 !backend/data/debug/.gitkeep
+
+context/*

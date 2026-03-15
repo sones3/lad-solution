@@ -1,6 +1,15 @@
 import { useMemo, useState } from 'react'
 import { buildApiUrl } from '../api/client'
-import type { ExtractResponse, TemplateSummary } from '../types/template'
+import type {
+  ExtractResponse,
+  LogicalSeparationPageMatch,
+  LogicalSeparationResponse,
+  LogicalSeparationStreamEvent,
+  SeparationMethod,
+  TemplateSummary,
+} from '../types/template'
+
+type ProcessingMode = 'extract' | 'separate'
 
 interface ExtractionPageProps {
   templates: TemplateSummary[]
@@ -9,6 +18,13 @@ interface ExtractionPageProps {
     file: File,
     ocrEngine: 'tesseract' | 'paddleocr',
   ) => Promise<ExtractResponse>
+  onSeparateLogically: (
+    templateId: string,
+    file: File,
+    method: SeparationMethod,
+    threshold: number,
+    onEvent?: (event: LogicalSeparationStreamEvent) => void,
+  ) => Promise<LogicalSeparationResponse>
 }
 
 function getBoxStyle(
@@ -24,10 +40,34 @@ function getBoxStyle(
   }
 }
 
-export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
+function formatSeparationMethod(method: SeparationMethod): string {
+  if (method === 'orb') {
+    return 'ORB alignment'
+  }
+  if (method === 'hybrid') {
+    return 'Recommended hybrid'
+  }
+  return 'Paper method (stable ORB)'
+}
+
+function getDefaultThreshold(method: SeparationMethod): number {
+  return method === 'hybrid' ? 0.55 : 0.35
+}
+
+export function ExtractionPage({
+  templates,
+  onExtract,
+  onSeparateLogically,
+}: ExtractionPageProps) {
+  const [mode, setMode] = useState<ProcessingMode>('extract')
   const [templateId, setTemplateId] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<ExtractResponse | null>(null)
+  const [separationMethod, setSeparationMethod] = useState<SeparationMethod>('paper')
+  const [separationThreshold, setSeparationThreshold] = useState<number>(getDefaultThreshold('paper'))
+  const [extractResult, setExtractResult] = useState<ExtractResponse | null>(null)
+  const [separationResult, setSeparationResult] = useState<LogicalSeparationResponse | null>(null)
+  const [streamPageMatches, setStreamPageMatches] = useState<LogicalSeparationPageMatch[]>([])
+  const [templateBinarized, setTemplateBinarized] = useState<boolean | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [comparePosition, setComparePosition] = useState(50)
@@ -35,25 +75,52 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
 
   const canRun = useMemo(() => templateId !== '' && file !== null, [file, templateId])
 
+  const clearResults = () => {
+    setExtractResult(null)
+    setSeparationResult(null)
+    setStreamPageMatches([])
+    setTemplateBinarized(null)
+    setError('')
+    setComparePosition(50)
+  }
+
   const handleRun = async () => {
     if (!file || !templateId) {
       return
     }
 
     setLoading(true)
-    setError('')
-    setResult(null)
-    setComparePosition(50)
+    clearResults()
     try {
-      const extraction = await onExtract(templateId, file, ocrEngine)
-      setResult(extraction)
+      if (mode === 'extract') {
+        const extraction = await onExtract(templateId, file, ocrEngine)
+        setExtractResult(extraction)
+      } else {
+        const separation = await onSeparateLogically(
+          templateId,
+          file,
+          separationMethod,
+          separationThreshold,
+          (event) => {
+            if (event.type === 'started') {
+              setTemplateBinarized(event.templateBinarized)
+            }
+            if (event.type === 'page') {
+              setStreamPageMatches((current) => [...current, event.pageMatch])
+            }
+          },
+        )
+        setSeparationResult(separation)
+        setStreamPageMatches(separation.pageMatches)
+      }
     } catch (runError) {
-      setError(runError instanceof Error ? runError.message : 'Extraction failed')
+      setError(runError instanceof Error ? runError.message : 'Processing failed')
     } finally {
       setLoading(false)
     }
   }
 
+  const result = extractResult
   const comparisonTargetPath = result?.preview.alignedPath ?? result?.preview.uploadedPath ?? null
   const annotatedImagePath = result?.preview.alignedPath ?? null
   const templateBinarizedPath = result?.preview.templateBinarizedPath ?? null
@@ -87,15 +154,57 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
     return result.debug.ocrWords.map((word) => word.text).join(' ')
   }, [result])
 
+  const displayedPageMatches = separationResult?.pageMatches ?? streamPageMatches
+  const displayedMatchedStartPages =
+    separationResult?.matchedStartPages ??
+    displayedPageMatches.filter((page) => page.matched).map((page) => page.pageNumber)
+  const showSeparationPanel =
+    mode === 'separate' &&
+    (loading || separationResult !== null || displayedPageMatches.length > 0 || templateBinarized !== null)
+
   return (
     <main className="panel">
-      <h2>Extract from new document</h2>
-      <p>Pick a saved template, upload a similar document image, and run ORB alignment + OCR extraction.</p>
+      <h2>Process a document</h2>
+      <p>
+        Choose a saved template, then either extract fields from a document image or analyze a PDF to
+        find logical document starts.
+      </p>
+
+      <div className="mode-switch" role="tablist" aria-label="Processing mode">
+        <button
+          type="button"
+          className={mode === 'extract' ? 'tab active' : 'tab'}
+          onClick={() => {
+            setMode('extract')
+            setFile(null)
+            clearResults()
+          }}
+        >
+          Extraction
+        </button>
+        <button
+          type="button"
+          className={mode === 'separate' ? 'tab active' : 'tab'}
+          onClick={() => {
+            setMode('separate')
+            setFile(null)
+            clearResults()
+          }}
+        >
+          Logical separation
+        </button>
+      </div>
 
       <div className="extract-form">
         <label>
           Template
-          <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+          <select
+            value={templateId}
+            onChange={(event) => {
+              setTemplateId(event.target.value)
+              clearResults()
+            }}
+          >
             <option value="">Select template</option>
             {templates.map((template) => (
               <option value={template.id} key={template.id}>
@@ -105,32 +214,217 @@ export function ExtractionPage({ templates, onExtract }: ExtractionPageProps) {
           </select>
         </label>
 
-        <label>
-          OCR engine
-          <select
-            value={ocrEngine}
-            onChange={(event) => setOcrEngine(event.target.value as 'tesseract' | 'paddleocr')}
-          >
-            <option value="tesseract">Tesseract</option>
-            <option value="paddleocr">PaddleOCR v5 mobile (fr)</option>
-          </select>
-        </label>
+        {mode === 'extract' ? (
+          <label>
+            OCR engine
+            <select
+              value={ocrEngine}
+              onChange={(event) => setOcrEngine(event.target.value as 'tesseract' | 'paddleocr')}
+            >
+              <option value="tesseract">Tesseract</option>
+              <option value="paddleocr">PaddleOCR v5 mobile (fr)</option>
+            </select>
+          </label>
+        ) : null}
+
+        {mode === 'separate' ? (
+          <label>
+            Detection method
+            <select
+              value={separationMethod}
+              onChange={(event) => {
+                const nextMethod = event.target.value as SeparationMethod
+                setSeparationMethod(nextMethod)
+                setSeparationThreshold(getDefaultThreshold(nextMethod))
+                clearResults()
+              }}
+            >
+              <option value="orb">ORB alignment</option>
+              <option value="hybrid">Recommended hybrid</option>
+              <option value="paper">Paper method (stable ORB)</option>
+            </select>
+          </label>
+        ) : null}
+
+        {mode === 'separate' ? (
+          <label>
+            Threshold
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={separationThreshold}
+              onChange={(event) => {
+                setSeparationThreshold(Number(event.target.value))
+                clearResults()
+              }}
+            />
+          </label>
+        ) : null}
 
         <label>
-          Document image
+          {mode === 'extract' ? 'Document image' : 'PDF document'}
           <input
+            key={mode}
             type="file"
-            accept="image/png,image/jpeg"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            accept={mode === 'extract' ? 'image/png,image/jpeg' : 'application/pdf'}
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null)
+              clearResults()
+            }}
           />
         </label>
 
         <button type="button" disabled={!canRun || loading} onClick={handleRun}>
-          {loading ? 'Extracting...' : 'Run extraction'}
+          {loading
+            ? mode === 'extract'
+              ? 'Extracting...'
+              : 'Analyzing...'
+            : mode === 'extract'
+              ? 'Run extraction'
+              : 'Analyze PDF'}
         </button>
       </div>
 
       {error ? <p className="message">{error}</p> : null}
+
+      {showSeparationPanel ? (
+        <section className="results-panel">
+          <section className="summary-panel">
+            <div className="compare-head">
+              <h3>Logical separation result</h3>
+              <p>
+                {loading
+                  ? `Processing pages... ${displayedPageMatches.length} page${displayedPageMatches.length === 1 ? '' : 's'} analyzed so far.`
+                  : 'Each matched template page is treated as the start of a document.'}
+              </p>
+            </div>
+            <div className="summary-grid">
+              <article>
+                <span>{separationResult ? 'Total pages' : 'Pages processed'}</span>
+                <strong>{separationResult ? separationResult.totalPages : displayedPageMatches.length}</strong>
+              </article>
+              <article>
+                <span>Detected documents</span>
+                <strong>
+                  {separationResult ? separationResult.documents.length : displayedMatchedStartPages.length}
+                </strong>
+              </article>
+              <article>
+                <span>Matched start pages</span>
+                <strong>
+                  {displayedMatchedStartPages.length > 0
+                    ? displayedMatchedStartPages.join(', ')
+                    : 'none'}
+                </strong>
+              </article>
+              <article>
+                <span>Detection method</span>
+                <strong>{formatSeparationMethod(separationResult?.method ?? separationMethod)}</strong>
+              </article>
+              <article>
+                <span>Threshold</span>
+                <strong>{(separationResult?.threshold ?? separationThreshold).toFixed(2)}</strong>
+              </article>
+              <article>
+                <span>Template binarized</span>
+                <strong>
+                  {templateBinarized === null ? 'pending' : templateBinarized ? 'yes' : 'no'}
+                </strong>
+              </article>
+            </div>
+          </section>
+
+          <section className="ocr-debug-panel">
+            <h3>Logical documents</h3>
+            {separationResult && separationResult.documents.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Start page</th>
+                    <th>End page</th>
+                    <th>Page count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {separationResult.documents.map((document) => (
+                    <tr key={document.index}>
+                      <td>{document.index}</td>
+                      <td>{document.startPage}</td>
+                      <td>{document.endPage}</td>
+                      <td>{document.pageCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : loading ? (
+              <p>Document ranges will appear once all pages are processed.</p>
+            ) : (
+              <p>No logical documents detected for this template.</p>
+            )}
+          </section>
+
+          {separationResult && separationResult.warnings.length > 0 ? (
+            <section className="ocr-debug-panel">
+              <h3>Warnings</h3>
+              <ul>
+                {separationResult.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {separationResult && separationResult.errors.length > 0 ? (
+            <section className="ocr-debug-panel">
+              <h3>Errors</h3>
+              <ul>
+                {separationResult.errors.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="ocr-debug-panel">
+            <h3>Page diagnostics</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  <th>Matched</th>
+                  <th>Binarized</th>
+                  <th>Score</th>
+                  <th>Matches</th>
+                  <th>Inlier ratio</th>
+                  <th>Visual</th>
+                  <th>ORB confirm</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedPageMatches.map((page) => (
+                  <tr key={page.pageNumber}>
+                    <td>{page.pageNumber}</td>
+                    <td>{page.matched ? 'yes' : 'no'}</td>
+                    <td>{page.binarized ? 'yes' : 'no'}</td>
+                    <td>{page.score.toFixed(3)}</td>
+                    <td>{page.matchesUsed ?? '-'}</td>
+                    <td>{page.inlierRatio != null ? page.inlierRatio.toFixed(3) : '-'}</td>
+                    <td>{page.visualScore != null ? page.visualScore.toFixed(3) : '-'}</td>
+                    <td>{page.orbScore != null ? page.orbScore.toFixed(3) : '-'}</td>
+                    <td>
+                      {[...(page.error ? [page.error] : []), ...page.warnings].join(' | ') || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </section>
+      ) : null}
 
       {result ? (
         <section className="results-panel">

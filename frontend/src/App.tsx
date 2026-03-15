@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createTemplate, deleteTemplate, getTemplate, listTemplates, updateTemplate } from './api/templates'
-import { extractFromTemplate } from './api/extraction'
-import type { ExtractResponse, Template, TemplateSummary, Zone } from './types/template'
+import { extractFromTemplate, separatePdfLogically } from './api/extraction'
+import { analyzeLot } from './api/lots'
+import type {
+  ExtractResponse,
+  LogicalSeparationResponse,
+  LogicalSeparationStreamEvent,
+  SeparationMethod,
+  Template,
+  TemplateSummary,
+  Zone,
+  IgnoreRegion,
+} from './types/template'
 import { ExtractionPage } from './pages/ExtractionPage'
+import { LotWorkflowPage } from './pages/LotWorkflowPage'
 import { TemplateEditorPage } from './pages/TemplateEditorPage'
 import { TemplatesPage } from './pages/TemplatesPage'
+import type { LotAnalysisResponse, LotAnalyzeConfig, LotStreamEvent } from './types/lot'
 
-type View = 'templates' | 'editor' | 'extract'
+type View = 'templates' | 'editor' | 'extract' | 'lots'
 
 function App() {
   const [view, setView] = useState<View>('templates')
@@ -20,7 +32,10 @@ function App() {
       return activeTemplate ? 'Edit template' : 'Create template'
     }
     if (view === 'extract') {
-      return 'Run extraction'
+      return 'Process documents'
+    }
+    if (view === 'lots') {
+      return 'Analyze lots'
     }
     return 'Template library'
   }, [activeTemplate, view])
@@ -79,6 +94,7 @@ function App() {
     name: string
     imageFile: File | null
     zones: Zone[]
+    paperIgnoreRegions: IgnoreRegion[]
     useWolfBinarization: boolean
   }) => {
     setLoading(true)
@@ -88,6 +104,7 @@ function App() {
         await updateTemplate(payload.id, {
           name: payload.name,
           zones: payload.zones,
+          paperIgnoreRegions: payload.paperIgnoreRegions,
           useWolfBinarization: payload.useWolfBinarization,
         })
       } else {
@@ -98,6 +115,7 @@ function App() {
           name: payload.name,
           image: payload.imageFile,
           zones: payload.zones,
+          paperIgnoreRegions: payload.paperIgnoreRegions,
           useWolfBinarization: payload.useWolfBinarization,
         })
       }
@@ -117,6 +135,25 @@ function App() {
     ocrEngine: 'tesseract' | 'paddleocr',
   ): Promise<ExtractResponse> => {
     return extractFromTemplate(templateId, file, ocrEngine)
+  }
+
+  const handleSeparateLogically = async (
+    templateId: string,
+    file: File,
+    method: SeparationMethod,
+    threshold: number,
+    onEvent?: (event: LogicalSeparationStreamEvent) => void,
+  ): Promise<LogicalSeparationResponse> => {
+    return separatePdfLogically(templateId, file, method, threshold, onEvent)
+  }
+
+  const handleAnalyzeLot = async (
+    pdf: File,
+    csv: File,
+    config: LotAnalyzeConfig,
+    onEvent?: (event: LotStreamEvent) => void,
+  ): Promise<LotAnalysisResponse> => {
+    return analyzeLot(pdf, csv, config, onEvent)
   }
 
   return (
@@ -146,7 +183,14 @@ function App() {
             className={view === 'extract' ? 'tab active' : 'tab'}
             onClick={() => setView('extract')}
           >
-            Extract
+            Process
+          </button>
+          <button
+            type="button"
+            className={view === 'lots' ? 'tab active' : 'tab'}
+            onClick={() => setView('lots')}
+          >
+            Lots
           </button>
         </nav>
       </header>
@@ -177,8 +221,14 @@ function App() {
       ) : null}
 
       {view === 'extract' ? (
-        <ExtractionPage templates={templates} onExtract={handleExtract} />
+        <ExtractionPage
+          templates={templates}
+          onExtract={handleExtract}
+          onSeparateLogically={handleSeparateLogically}
+        />
       ) : null}
+
+      {view === 'lots' ? <LotWorkflowPage templates={templates} onAnalyze={handleAnalyzeLot} /> : null}
     </div>
   )
 }

@@ -130,6 +130,10 @@ button:disabled {
   padding: 1rem;
 }
 
+.lot-panel {
+  padding: 0.55rem;
+}
+
 .panel-title-row {
   display: flex;
   align-items: center;
@@ -314,10 +318,49 @@ select {
   flex-wrap: wrap;
 }
 
+.mode-switch {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
 .results-panel {
   margin-top: 1rem;
   display: grid;
   gap: 0.6rem;
+}
+
+.summary-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+
+.summary-grid article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #faf9f5;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.summary-grid span {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.summary-grid strong {
+  font-size: 1.15rem;
 }
 
 .compare-panel,
@@ -347,6 +390,47 @@ select {
   padding: 0.75rem;
   display: grid;
   gap: 0.55rem;
+}
+
+.table-scroll {
+  max-height: 18rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.table-scroll-tall {
+  max-height: 24rem;
+}
+
+.reconcile-table {
+  table-layout: fixed;
+  min-width: 1310px;
+}
+
+.resizable-head {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.resizable-head span {
+  min-width: 0;
+}
+
+.col-resizer {
+  width: 8px;
+  min-width: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(18, 50, 74, 0.12), rgba(18, 50, 74, 0.42));
+  cursor: col-resize;
+}
+
+.col-resizer:hover {
+  background: linear-gradient(180deg, rgba(221, 109, 52, 0.35), rgba(221, 109, 52, 0.75));
 }
 
 .binarized-grid {
@@ -525,12 +609,21 @@ table {
   background: #fff;
 }
 
+thead th {
+  position: sticky;
+  top: 0;
+  background: #f7f4ed;
+  z-index: 1;
+}
+
 th,
 td {
   border: 1px solid var(--line);
   text-align: left;
   padding: 0.45rem;
   vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 1080px) {

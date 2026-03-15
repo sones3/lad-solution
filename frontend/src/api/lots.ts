@@ -1,41 +1,30 @@
-import { buildApiUrl, request } from './client'
-import type {
-  ExtractResponse,
-  LogicalSeparationResponse,
-  SeparationMethod,
-  LogicalSeparationStreamEvent,
-} from '../types/template'
+import { buildApiUrl } from './client'
+import type { LotAnalysisResponse, LotAnalyzeConfig, LotStreamEvent } from '../types/lot'
 
-export async function extractFromTemplate(
-  templateId: string,
-  image: File,
-  ocrEngine: 'tesseract' | 'paddleocr',
-): Promise<ExtractResponse> {
-  const formData = new FormData()
-  formData.append('templateId', templateId)
-  formData.append('image', image)
-  formData.append('ocrEngine', ocrEngine)
-
-  return request<ExtractResponse>('/extract', {
-    method: 'POST',
-    body: formData,
-  })
-}
-
-export async function separatePdfLogically(
-  templateId: string,
+export async function analyzeLot(
   pdf: File,
-  method: SeparationMethod,
-  threshold: number,
-  onEvent?: (event: LogicalSeparationStreamEvent) => void,
-): Promise<LogicalSeparationResponse> {
+  csv: File,
+  config: LotAnalyzeConfig,
+  onEvent?: (event: LotStreamEvent) => void,
+): Promise<LotAnalysisResponse> {
   const formData = new FormData()
-  formData.append('templateId', templateId)
   formData.append('pdf', pdf)
-  formData.append('method', method)
-  formData.append('threshold', String(threshold))
+  formData.append('csv', csv)
+  formData.append('separationMethod', config.separationMethod)
+  if (config.templateId) {
+    formData.append('templateId', config.templateId)
+  }
+  formData.append('paperThreshold', String(config.paperThreshold))
+  formData.append('dpi', String(config.dpi))
+  formData.append('binarizer', config.binarizer)
+  formData.append('lang', config.lang)
+  formData.append('psm', String(config.psm))
+  formData.append('oem', String(config.oem))
+  formData.append('timeout', String(config.timeout))
+  formData.append('minKeywords', String(config.minKeywords))
+  formData.append('workers', String(config.workers))
 
-  const response = await fetch(buildApiUrl('/separate-logically/stream'), {
+  const response = await fetch(buildApiUrl('/lots/analyze/stream'), {
     method: 'POST',
     body: formData,
   })
@@ -60,7 +49,7 @@ export async function separatePdfLogically(
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let finalResult: LogicalSeparationResponse | null = null
+  let finalResult: LotAnalysisResponse | null = null
 
   while (true) {
     const { done, value } = await reader.read()
@@ -74,7 +63,7 @@ export async function separatePdfLogically(
         continue
       }
 
-      const event = JSON.parse(line) as LogicalSeparationStreamEvent
+      const event = JSON.parse(line) as LotStreamEvent
       onEvent?.(event)
       if (event.type === 'error') {
         throw new Error(event.error)
@@ -90,7 +79,7 @@ export async function separatePdfLogically(
   }
 
   if (!finalResult) {
-    throw new Error('Logical separation stream ended before completion')
+    throw new Error('Lot analysis stream ended before completion')
   }
 
   return finalResult

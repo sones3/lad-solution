@@ -13,6 +13,7 @@ class TemplateStore:
         self.data_dir = data_dir
         self.templates_file = data_dir / "templates.json"
         self.template_images_dir = data_dir / "template_images"
+        self.template_features_dir = data_dir / "template_features"
         self.uploads_dir = data_dir / "uploads"
         self.debug_dir = data_dir / "debug"
         self._init_storage()
@@ -20,6 +21,7 @@ class TemplateStore:
     def _init_storage(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.template_images_dir.mkdir(parents=True, exist_ok=True)
+        self.template_features_dir.mkdir(parents=True, exist_ok=True)
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
         self.debug_dir.mkdir(parents=True, exist_ok=True)
 
@@ -67,11 +69,17 @@ class TemplateStore:
         remaining = []
         deleted = False
         image_path: str | None = None
+        artifact_path: str | None = None
 
         for item in templates:
             if item.get("id") == template_id:
                 deleted = True
                 image_path = item.get("imagePath")
+                artifact_data = item.get("paperFeatureArtifact")
+                if isinstance(artifact_data, dict):
+                    raw_artifact_path = artifact_data.get("artifactPath")
+                    if isinstance(raw_artifact_path, str):
+                        artifact_path = raw_artifact_path
                 continue
             remaining.append(item)
 
@@ -82,6 +90,11 @@ class TemplateStore:
 
         if image_path:
             target = self.data_dir.parent / image_path.removeprefix("/")
+            if target.exists():
+                target.unlink()
+
+        if artifact_path:
+            target = self.data_dir.parent / artifact_path.removeprefix("/")
             if target.exists():
                 target.unlink()
 

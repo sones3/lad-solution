@@ -57,3 +57,36 @@ class ExtractResponseModel(BaseModel):
     debug: ExtractionDebugModel
     fields: list[FieldExtractionModel]
     errors: list[str]
+
+
+class LogicalSeparationPageMatchModel(BaseModel):
+    pageNumber: int
+    matched: bool
+    method: str
+    binarized: bool
+    score: float
+    inlierRatio: float | None = None
+    matchesUsed: int | None = None
+    visualScore: float | None = None
+    orbScore: float | None = None
+    warnings: list[str]
+    error: str | None = None
+
+
+class LogicalDocumentRangeModel(BaseModel):
+    index: int
+    startPage: int
+    endPage: int
+    pageCount: int
+
+
+class LogicalSeparationResponseModel(BaseModel):
+    templateId: str
+    method: str
+    threshold: float
+    totalPages: int
+    matchedStartPages: list[int]
+    documents: list[LogicalDocumentRangeModel]
+    pageMatches: list[LogicalSeparationPageMatchModel]
+    warnings: list[str]
+    errors: list[str]

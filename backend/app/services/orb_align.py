@@ -16,9 +16,19 @@ class AlignmentResult:
     error: str | None = None
 
 
-def align_document_to_template(template_image: np.ndarray, input_image: np.ndarray) -> AlignmentResult:
+def align_document_to_template(
+    template_image: np.ndarray,
+    input_image: np.ndarray,
+    *,
+    warp: bool = True,
+) -> AlignmentResult:
     warnings: list[str] = []
-    orb = cv2.ORB_create(nfeatures=3000, scaleFactor=1.2, nlevels=8, fastThreshold=20)
+    orb = cv2.ORB_create(  # pyright: ignore[reportAttributeAccessIssue]
+        nfeatures=3000,
+        scaleFactor=1.2,
+        nlevels=8,
+        fastThreshold=20,
+    )
 
     template_gray = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
     input_gray = cv2.cvtColor(input_image, cv2.COLOR_BGR2GRAY)
@@ -39,7 +49,7 @@ def align_document_to_template(template_image: np.ndarray, input_image: np.ndarr
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
     raw_matches = matcher.knnMatch(des_template, des_input, k=2)
 
-    good_matches = []
+    good_matches: list[cv2.DMatch] = []
     for pair in raw_matches:
         if len(pair) < 2:
             continue
@@ -57,8 +67,15 @@ def align_document_to_template(template_image: np.ndarray, input_image: np.ndarr
             error=f"Not enough good matches ({len(good_matches)})",
         )
 
-    src_points = np.float32([kp_input[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-    dst_points = np.float32([kp_template[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+    src_point_list: list[tuple[float, float]] = [
+        (float(kp_input[m.trainIdx].pt[0]), float(kp_input[m.trainIdx].pt[1])) for m in good_matches
+    ]
+    dst_point_list: list[tuple[float, float]] = [
+        (float(kp_template[m.queryIdx].pt[0]), float(kp_template[m.queryIdx].pt[1])) for m in good_matches
+    ]
+
+    src_points = np.asarray(src_point_list, dtype=np.float32).reshape(-1, 1, 2)
+    dst_points = np.asarray(dst_point_list, dtype=np.float32).reshape(-1, 1, 2)
 
     homography, mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 4.0)
     if homography is None or mask is None:
@@ -75,8 +92,10 @@ def align_document_to_template(template_image: np.ndarray, input_image: np.ndarr
     if inlier_ratio < 0.35:
         warnings.append(f"Low alignment confidence: inlier ratio {inlier_ratio:.3f}")
 
-    height, width = template_image.shape[:2]
-    aligned = cv2.warpPerspective(input_image, homography, (width, height))
+    aligned: np.ndarray | None = None
+    if warp:
+        height, width = template_image.shape[:2]
+        aligned = cv2.warpPerspective(input_image, homography, (width, height))
 
     return AlignmentResult(
         success=True,

@@ -22,14 +22,13 @@ def initialize_paddle_ocr() -> None:
 
     try:
         _paddle_ocr = PaddleOCR(
-            lang="fr",
-            cpu_threads=multiprocessing.cpu_count(),
-            enable_mkldnn=True,
+            # cpu_threads=multiprocessing.cpu_count(),
+            # enable_mkldnn=True,
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,
             use_textline_orientation=False,
-            text_detection_model_name="PP-OCRv5_mobile_det",
-            text_recognition_model_name="PP-OCRv5_mobile_rec",
+            text_detection_model_name="PP-OCRv5_server_det",
+            text_recognition_model_name="PP-OCRv5_server_rec",
         )
     except Exception as exc:  # pragma: no cover - depends on runtime environment
         _paddle_init_error = f"PaddleOCR initialization failed: {exc}"

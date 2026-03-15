@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import os
 import re
 from typing import Any, Literal
 
@@ -12,6 +13,8 @@ from app.models.template_models import ZoneModel, ZoneType
 
 OCREngine = Literal["tesseract", "paddleocr"]
 PADDLE_MAX_LONG_SIDE = 1600
+
+# os.environ.setdefault("OMP_THREAD_LIMIT", "1")
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,14 @@ class OCRWord:
     block_num: int
     par_num: int
     line_num: int
+
+
+@dataclass(frozen=True)
+class OCRTextConfig:
+    lang: str = "fra+eng"
+    psm: int = 6
+    oem: int = 1
+    timeout: int = 12
 
 
 def _normalize_text(value: str, zone_type: ZoneType) -> str:
@@ -83,6 +94,29 @@ def _run_tesseract_word_ocr(image: np.ndarray) -> tuple[list[OCRWord], str | Non
         )
 
     return words, None
+
+
+def run_text_ocr(image: np.ndarray, *, config: OCRTextConfig | None = None) -> tuple[str, str | None]:
+    selected_config = config or OCRTextConfig()
+    tesseract_config = (
+        f"--oem {selected_config.oem} --psm {selected_config.psm} "
+        "-c load_system_dawg=0 -c load_freq_dawg=0"
+    )
+
+    try:
+        return (
+            pytesseract.image_to_string(
+                image,
+                lang=selected_config.lang,
+                config=tesseract_config,
+                timeout=selected_config.timeout,
+            ),
+            None,
+        )
+    except pytesseract.TesseractNotFoundError:
+        return "", "Tesseract executable not found"
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        return "", f"Tesseract OCR failed: {exc}"
 
 
 def _normalize_paddle_box(box: Any) -> tuple[int, int, int, int] | None:
