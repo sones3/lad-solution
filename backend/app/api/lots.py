@@ -2,24 +2,41 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 import json
+from threading import Lock
 
 import cv2
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.models.lot_models import LotAnalysisResponseModel, LotCsvRowModel, LotDocumentModel, LotIssueModel, LotSummaryModel
+from app.models.lot_models import (
+    LotAnalysisResponseModel,
+    LotCsvRowModel,
+    LotDocumentModel,
+    LotFolderModel,
+    LotFolderProcessRequestModel,
+    LotIssueModel,
+    LotSummaryModel,
+)
 from app.models.template_models import TemplateModel
 from app.services.lot_csv import parse_lot_csv
+from app.services.lot_folder_workflow import process_lot_workspace
 from app.services.lot_matcher import (
     LotDocumentSeed,
     build_lot_match_results,
     evaluate_lot_document,
 )
-from app.services.lot_separator import LotSeparatorConfig, LotSeparationPageModel, iter_lot_pdf_pages, iter_lot_pdf_pages_with_paper
+from app.services.lot_separator import (
+    LotSeparatorConfig,
+    LotSeparationPageModel,
+    iter_lot_pdf_pages,
+    iter_lot_pdf_pages_with_paper,
+)
 from app.services.template_feature_store import load_paper_template_features
+from app.services.lot_workspace import get_lot_workspace, list_lot_workspaces
 from app.storage.template_store import TemplateStore
 
 router = APIRouter(prefix="/lots", tags=["lots"])
+PROCESS_LOCK = Lock()
 
 
 def get_store() -> TemplateStore:
@@ -30,7 +47,9 @@ def get_store() -> TemplateStore:
 
 def _read_pdf_upload(file: UploadFile) -> bytes:
     if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Only PDF files are supported for lots")
+        raise HTTPException(
+            status_code=400, detail="Only PDF files are supported for lots"
+        )
 
     raw = file.file.read()
     if not raw:
@@ -61,16 +80,27 @@ def _parse_separator_config(
 ) -> LotSeparatorConfig:
     normalized_method = separation_method.strip().lower()
     if normalized_method not in {"ocr", "paper"}:
-        raise HTTPException(status_code=400, detail="separationMethod must be 'ocr' or 'paper'")
+        raise HTTPException(
+            status_code=400, detail="separationMethod must be 'ocr' or 'paper'"
+        )
     if min_keywords < 1 or min_keywords > 4:
-        raise HTTPException(status_code=400, detail="minKeywords must be between 1 and 4")
+        raise HTTPException(
+            status_code=400, detail="minKeywords must be between 1 and 4"
+        )
     if dpi <= 0 or timeout <= 0 or workers <= 0:
-        raise HTTPException(status_code=400, detail="dpi, timeout, and workers must be positive")
+        raise HTTPException(
+            status_code=400, detail="dpi, timeout, and workers must be positive"
+        )
     if paper_threshold < 0.0 or paper_threshold > 1.0:
-        raise HTTPException(status_code=400, detail="paperThreshold must be between 0 and 1")
+        raise HTTPException(
+            status_code=400, detail="paperThreshold must be between 0 and 1"
+        )
 
     if normalized_method == "paper" and not template_id:
-        raise HTTPException(status_code=400, detail="templateId is required when separationMethod is 'paper'")
+        raise HTTPException(
+            status_code=400,
+            detail="templateId is required when separationMethod is 'paper'",
+        )
 
     return LotSeparatorConfig(
         separation_method=normalized_method,
@@ -87,11 +117,15 @@ def _parse_separator_config(
     )
 
 
-def _load_template_image(template: TemplateModel, template_store: TemplateStore) -> cv2.typing.MatLike:
+def _load_template_image(
+    template: TemplateModel, template_store: TemplateStore
+) -> cv2.typing.MatLike:
     image_path = template_store.data_dir.parent / template.imagePath.removeprefix("/")
     image = cv2.imread(str(image_path))
     if image is None:
-        raise HTTPException(status_code=500, detail="Template image file does not exist")
+        raise HTTPException(
+            status_code=500, detail="Template image file does not exist"
+        )
     return image
 
 
@@ -135,14 +169,24 @@ def _build_lot_analysis(
         if template is None:
             raise HTTPException(status_code=404, detail="Template not found")
         if template.paperFeatureArtifact is None:
-            raise HTTPException(status_code=400, detail="Selected template does not have a paper artifact yet")
-        artifact_path = template_store.data_dir.parent / template.paperFeatureArtifact.artifactPath.removeprefix("/")
+            raise HTTPException(
+                status_code=400,
+                detail="Selected template does not have a paper artifact yet",
+            )
+        artifact_path = (
+            template_store.data_dir.parent
+            / template.paperFeatureArtifact.artifactPath.removeprefix("/")
+        )
         if not artifact_path.exists():
-            raise HTTPException(status_code=500, detail="Paper template artifact file does not exist")
+            raise HTTPException(
+                status_code=500, detail="Paper template artifact file does not exist"
+            )
         try:
             template_features = load_paper_template_features(artifact_path)
         except (OSError, ValueError) as exc:
-            raise HTTPException(status_code=500, detail="Failed to load paper template artifact") from exc
+            raise HTTPException(
+                status_code=500, detail="Failed to load paper template artifact"
+            ) from exc
         template_image = _load_template_image(template, template_store)
         page_iterator = iter_lot_pdf_pages_with_paper(
             pdf_raw,
@@ -169,7 +213,9 @@ def _build_lot_analysis(
                 page_count=1,
                 first_page=page,
             )
-            document, document_issues, claimed_row = evaluate_lot_document(document=document_seed, csv_rows=csv_rows)
+            document, document_issues, claimed_row = evaluate_lot_document(
+                document=document_seed, csv_rows=csv_rows
+            )
             provisional_documents.append(document)
             issues.extend(document_issues)
             yield {"type": "document", "document": document.model_dump(mode="json")}
@@ -180,7 +226,11 @@ def _build_lot_analysis(
     start_pages = sorted(page.pageNumber for page in pages if page.isNewDocument)
 
     if not start_pages:
-        issues.append(LotIssueModel(code="no_start_pages", message="No document start pages were detected"))
+        issues.append(
+            LotIssueModel(
+                code="no_start_pages", message="No document start pages were detected"
+            )
+        )
     elif start_pages[0] != 1:
         issues.append(
             LotIssueModel(
@@ -189,15 +239,21 @@ def _build_lot_analysis(
                 pageNumber=start_pages[0],
             )
         )
-    issues.extend(_build_long_gap_warnings(start_pages=start_pages, total_pages=len(pages)))
+    issues.extend(
+        _build_long_gap_warnings(start_pages=start_pages, total_pages=len(pages))
+    )
 
     page_map = {page.pageNumber: page for page in pages}
     final_document_seeds = [
         LotDocumentSeed(
             index=index,
             start_page=start_page,
-            end_page=(start_pages[index] - 1) if index < len(start_pages) else len(pages),
-            page_count=((start_pages[index] - 1) - start_page + 1) if index < len(start_pages) else (len(pages) - start_page + 1),
+            end_page=(start_pages[index] - 1)
+            if index < len(start_pages)
+            else len(pages),
+            page_count=((start_pages[index] - 1) - start_page + 1)
+            if index < len(start_pages)
+            else (len(pages) - start_page + 1),
             first_page=page_map.get(start_page),
         )
         for index, start_page in enumerate(start_pages, start=1)
@@ -216,8 +272,11 @@ def _build_lot_analysis(
         totalPages=len(pages),
         csvRowCount=len(csv_rows),
         detectedDocumentCount=len(documents),
-        matchedDocumentCount=sum(1 for document in documents if document.assignedRow is not None),
-        validationBlocked=validation_blocked or any(issue.severity != "warning" for issue in issues),
+        matchedDocumentCount=sum(
+            1 for document in documents if document.assignedRow is not None
+        ),
+        validationBlocked=validation_blocked
+        or any(issue.severity != "warning" for issue in issues),
     )
 
     response = LotAnalysisResponseModel(
@@ -230,6 +289,8 @@ def _build_lot_analysis(
                 distributeur=row.distributeur,
                 client=row.client,
                 statut=row.statut,
+                cote=row.cote,
+                caisse=row.caisse,
             )
             for row in csv_rows
         ],
@@ -241,7 +302,9 @@ def _build_lot_analysis(
     yield {"type": "complete", "result": response.model_dump(mode="json")}
 
 
-def _build_long_gap_warnings(*, start_pages: list[int], total_pages: int) -> list[LotIssueModel]:
+def _build_long_gap_warnings(
+    *, start_pages: list[int], total_pages: int
+) -> list[LotIssueModel]:
     warnings: list[LotIssueModel] = []
     if total_pages <= 0:
         return warnings
@@ -301,7 +364,12 @@ def analyze_lot(
         workers=workers,
     )
 
-    events = _build_lot_analysis(_read_pdf_upload(pdf), _read_csv_upload(csv), config=config, template_store=template_store)
+    events = _build_lot_analysis(
+        _read_pdf_upload(pdf),
+        _read_csv_upload(csv),
+        config=config,
+        template_store=template_store,
+    )
     for event in events:
         if event["type"] == "complete":
             return LotAnalysisResponseModel.model_validate(event["result"])
@@ -343,9 +411,91 @@ def analyze_lot_stream(
 
     def stream() -> Iterator[bytes]:
         try:
-            for event in _build_lot_analysis(pdf_raw, csv_raw, config=config, template_store=template_store):
+            for event in _build_lot_analysis(
+                pdf_raw, csv_raw, config=config, template_store=template_store
+            ):
                 yield (json.dumps(event) + "\n").encode("utf-8")
         except HTTPException as exc:
-            yield (json.dumps({"type": "error", "error": str(exc.detail)}) + "\n").encode("utf-8")
+            yield (
+                json.dumps({"type": "error", "error": str(exc.detail)}) + "\n"
+            ).encode("utf-8")
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@router.get("/folders", response_model=list[LotFolderModel])
+def list_lot_folders() -> list[LotFolderModel]:
+    return [
+        LotFolderModel(
+            name=workspace.name,
+            lotNumber=workspace.lot_number,
+            status=workspace.status,
+            pdfPresent=workspace.pdf_present,
+            csvPresent=workspace.csv_present,
+            sepPresent=workspace.sep_present,
+            workbookPresent=workspace.workbook_present,
+            lastModified=_format_timestamp(workspace.last_modified),
+            errors=workspace.errors,
+            config={
+                "templateId": workspace.config.template_id,
+                "paperThreshold": workspace.config.paper_threshold,
+            },
+        )
+        for workspace in list_lot_workspaces()
+    ]
+
+
+@router.post("/folders/{lot_name}/process/stream")
+def process_lot_folder_stream(
+    lot_name: str,
+    payload: LotFolderProcessRequestModel = Body(...),
+    template_store: TemplateStore = Depends(get_store),
+) -> StreamingResponse:
+    workspace = get_lot_workspace(lot_name)
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Lot not found")
+    if workspace.status != "ready":
+        raise HTTPException(
+            status_code=400, detail="Lot is incomplete and cannot be processed"
+        )
+    if workspace.outputs_exist and not payload.confirmRegenerate:
+        raise HTTPException(
+            status_code=409,
+            detail="Lot already has generated outputs and requires confirmation",
+        )
+    if not (0.0 <= payload.paperThreshold <= 1.0):
+        raise HTTPException(
+            status_code=400, detail="paperThreshold must be between 0 and 1"
+        )
+    if not PROCESS_LOCK.acquire(blocking=False):
+        raise HTTPException(
+            status_code=409, detail="Another lot is already being processed"
+        )
+
+    def stream() -> Iterator[bytes]:
+        try:
+            for event in process_lot_workspace(
+                workspace=workspace,
+                template_id=payload.templateId,
+                paper_threshold=payload.paperThreshold,
+                template_store=template_store,
+            ):
+                yield (json.dumps(event) + "\n").encode("utf-8")
+        except ValueError as exc:
+            yield (json.dumps({"type": "error", "error": str(exc)}) + "\n").encode(
+                "utf-8"
+            )
+        except Exception as exc:
+            yield (json.dumps({"type": "error", "error": str(exc)}) + "\n").encode(
+                "utf-8"
+            )
+        finally:
+            PROCESS_LOCK.release()
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+def _format_timestamp(value: float) -> str:
+    from datetime import datetime
+
+    return datetime.fromtimestamp(value).isoformat(timespec="seconds")

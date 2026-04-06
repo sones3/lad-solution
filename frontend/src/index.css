@@ -134,6 +134,67 @@ button:disabled {
   padding: 0.55rem;
 }
 
+.lot-workspace-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.lot-workspace-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.lot-list-panel,
+.lot-detail-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.lot-list {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.lot-card {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #faf8f2;
+  color: var(--ink);
+}
+
+.lot-card.active {
+  border-color: #d68d67;
+  background: var(--accent-soft);
+}
+
+.lot-card small {
+  color: var(--ink-soft);
+}
+
+.lot-log {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lot-log-entry {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #faf9f5;
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
 .panel-title-row {
   display: flex;
   align-items: center;
@@ -628,6 +689,10 @@ td {
 
 @media (max-width: 1080px) {
   .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lot-workspace-grid {
     grid-template-columns: 1fr;
   }
 }

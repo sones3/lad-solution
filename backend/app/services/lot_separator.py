@@ -49,7 +49,9 @@ def normalize_lot_text(text: str) -> str:
     lowered = text.casefold()
     lowered = re.sub(r"[\u00E8\u00E9\u00EA\u00EB]", "e", lowered)
     decomposed = unicodedata.normalize("NFKD", lowered)
-    no_accents = "".join(character for character in decomposed if not unicodedata.combining(character))
+    no_accents = "".join(
+        character for character in decomposed if not unicodedata.combining(character)
+    )
     normalized = re.sub(r"[^a-z0-9\s]", " ", no_accents)
     return re.sub(r"\s+", " ", normalized).strip()
 
@@ -67,7 +69,9 @@ def analyze_lot_pdf(
     *,
     config: LotSeparatorConfig,
 ) -> tuple[list[LotSeparationPageModel], list[int]]:
-    page_results: list[LotSeparationPageModel] = list(iter_lot_pdf_pages(pdf_bytes, config=config))
+    page_results: list[LotSeparationPageModel] = list(
+        iter_lot_pdf_pages(pdf_bytes, config=config)
+    )
 
     start_pages = [page.pageNumber for page in page_results if page.isNewDocument]
     return page_results, start_pages
@@ -87,15 +91,24 @@ def iter_lot_pdf_pages(
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures: dict[Future[LotSeparationPageModel], int] = {}
         for page_number in range(1, total_pages + 1):
-            futures[executor.submit(_process_pdf_page, pdf_bytes=pdf_bytes, page_number=page_number, config=config)] = page_number
+            futures[
+                executor.submit(
+                    _process_pdf_page,
+                    pdf_bytes=pdf_bytes,
+                    page_number=page_number,
+                    config=config,
+                )
+            ] = page_number
 
         for future in as_completed(futures):
             yield future.result()
 
 
-def _process_pdf_page(*, pdf_bytes: bytes, page_number: int, config: LotSeparatorConfig) -> LotSeparationPageModel:
+def _process_pdf_page(
+    *, pdf_bytes: bytes, page_number: int, config: LotSeparatorConfig
+) -> LotSeparationPageModel:
     page_image = render_pdf_page(pdf_bytes, page_number=page_number, dpi=config.dpi)
-    return _process_page(page_number=page_number, image=page_image, config=config)
+    return ocr_lot_page(page_number=page_number, image=page_image, config=config)
 
 
 def iter_lot_pdf_pages_with_paper(
@@ -111,11 +124,15 @@ def iter_lot_pdf_pages_with_paper(
 
     build_width = template.paperFeatureArtifact.buildWidth
     build_height = template.paperFeatureArtifact.buildHeight
-    resized_template = cv2.resize(template_image, (build_width, build_height), interpolation=cv2.INTER_AREA)
+    resized_template = cv2.resize(
+        template_image, (build_width, build_height), interpolation=cv2.INTER_AREA
+    )
     total_pages = get_pdf_page_count(pdf_bytes)
     for page_number in range(1, total_pages + 1):
         page_image = render_pdf_page(pdf_bytes, page_number=page_number, dpi=config.dpi)
-        resized_page = cv2.resize(page_image, (build_width, build_height), interpolation=cv2.INTER_AREA)
+        resized_page = cv2.resize(
+            page_image, (build_width, build_height), interpolation=cv2.INTER_AREA
+        )
         alignment_result = align_document_with_paper_features(
             template_image=resized_template,
             template_features=template_features,
@@ -125,7 +142,9 @@ def iter_lot_pdf_pages_with_paper(
         score = alignment_result.inlier_ratio if alignment_result.success else 0.0
         matched = alignment_result.success and score >= config.paper_threshold
         if matched:
-            ocr_page = _process_page(page_number=page_number, image=page_image, config=config)
+            ocr_page = ocr_lot_page(
+                page_number=page_number, image=page_image, config=config
+            )
             yield LotSeparationPageModel(
                 pageNumber=page_number,
                 separationMethod="paper",
@@ -168,7 +187,9 @@ def iter_lot_pdf_pages_with_paper(
         )
 
 
-def _process_page(*, page_number: int, image: np.ndarray, config: LotSeparatorConfig) -> LotSeparationPageModel:
+def ocr_lot_page(
+    *, page_number: int, image: np.ndarray, config: LotSeparatorConfig
+) -> LotSeparationPageModel:
     top_half = image[: max(1, image.shape[0] // 2), :]
     gray = cv2.cvtColor(top_half, cv2.COLOR_BGR2GRAY)
     methods = ["otsu"]
@@ -240,7 +261,9 @@ def match_lot_keywords(text: str, *, min_keywords: int) -> KeywordMatchResult:
     )
 
 
-def build_lot_documents(start_pages: list[int], total_pages: int) -> list[tuple[int, int, int, int]]:
+def build_lot_documents(
+    start_pages: list[int], total_pages: int
+) -> list[tuple[int, int, int, int]]:
     documents: list[tuple[int, int, int, int]] = []
     for index, start_page in enumerate(start_pages, start=1):
         next_start = start_pages[index] if index < len(start_pages) else None
@@ -264,5 +287,10 @@ def _binarize(gray: np.ndarray, method: str) -> np.ndarray:
 
 
 def _otsu(gray: np.ndarray) -> np.ndarray:
-    _, binary = cv2.threshold(np.ascontiguousarray(gray.astype(np.uint8)), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, binary = cv2.threshold(
+        np.ascontiguousarray(gray.astype(np.uint8)),
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+    )
     return binary

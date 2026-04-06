@@ -16,6 +16,8 @@ class LotCsvRow:
     distributeur: str
     client: str
     statut: str
+    cote: str
+    caisse: str
 
 
 def parse_lot_csv(raw: bytes) -> list[LotCsvRow]:
@@ -24,9 +26,13 @@ def parse_lot_csv(raw: bytes) -> list[LotCsvRow]:
     if reader.fieldnames is None:
         raise ValueError("CSV is empty")
 
-    missing_columns = [column for column in REQUIRED_COLUMNS if column not in reader.fieldnames]
+    missing_columns = [
+        column for column in REQUIRED_COLUMNS if column not in reader.fieldnames
+    ]
     if missing_columns:
-        raise ValueError(f"CSV is missing required columns: {', '.join(missing_columns)}")
+        raise ValueError(
+            f"CSV is missing required columns: {', '.join(missing_columns)}"
+        )
 
     rows: list[LotCsvRow] = []
     for row_number, row in enumerate(reader, start=2):
@@ -38,6 +44,8 @@ def parse_lot_csv(raw: bytes) -> list[LotCsvRow]:
                 distributeur=(row.get("Distributeur") or "").strip(),
                 client=(row.get("Client") or "").strip(),
                 statut=(row.get("Statut") or "").strip(),
+                cote=(row.get("Cote") or "").strip(),
+                caisse=(row.get("Caisse") or "").strip(),
             )
         )
 

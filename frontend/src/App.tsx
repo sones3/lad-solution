@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createTemplate, deleteTemplate, getTemplate, listTemplates, updateTemplate } from './api/templates'
 import { extractFromTemplate, separatePdfLogically } from './api/extraction'
-import { analyzeLot } from './api/lots'
 import type {
   ExtractResponse,
   LogicalSeparationResponse,
@@ -16,7 +15,6 @@ import { ExtractionPage } from './pages/ExtractionPage'
 import { LotWorkflowPage } from './pages/LotWorkflowPage'
 import { TemplateEditorPage } from './pages/TemplateEditorPage'
 import { TemplatesPage } from './pages/TemplatesPage'
-import type { LotAnalysisResponse, LotAnalyzeConfig, LotStreamEvent } from './types/lot'
 
 type View = 'templates' | 'editor' | 'extract' | 'lots'
 
@@ -147,15 +145,6 @@ function App() {
     return separatePdfLogically(templateId, file, method, threshold, onEvent)
   }
 
-  const handleAnalyzeLot = async (
-    pdf: File,
-    csv: File,
-    config: LotAnalyzeConfig,
-    onEvent?: (event: LotStreamEvent) => void,
-  ): Promise<LotAnalysisResponse> => {
-    return analyzeLot(pdf, csv, config, onEvent)
-  }
-
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -228,7 +217,7 @@ function App() {
         />
       ) : null}
 
-      {view === 'lots' ? <LotWorkflowPage templates={templates} onAnalyze={handleAnalyzeLot} /> : null}
+      {view === 'lots' ? <LotWorkflowPage templates={templates} /> : null}
     </div>
   )
 }

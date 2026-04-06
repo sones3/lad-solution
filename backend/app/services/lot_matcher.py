@@ -48,7 +48,9 @@ def build_lot_match_results(
         )
 
     for document in documents:
-        document_model, document_issues, claimed_row = evaluate_lot_document(document=document, csv_rows=csv_rows)
+        document_model, document_issues, claimed_row = evaluate_lot_document(
+            document=document, csv_rows=csv_rows
+        )
         document_models.append(document_model)
         issues.extend(document_issues)
         if claimed_row is not None:
@@ -134,7 +136,11 @@ def evaluate_lot_document(
         assignedRow=assigned_row,
         blockedReason=blocked_reason,
     )
-    return document_model, issues, assigned_row.rowNumber if assigned_row is not None else None
+    return (
+        document_model,
+        issues,
+        assigned_row.rowNumber if assigned_row is not None else None,
+    )
 
 
 def finalize_lot_documents(
@@ -143,7 +149,11 @@ def finalize_lot_documents(
     issues: list[LotIssueModel],
     claimed_rows: dict[int, list[int]],
 ) -> tuple[list[LotDocumentModel], list[LotIssueModel], bool]:
-    duplicate_rows = {row_number: document_indexes for row_number, document_indexes in claimed_rows.items() if len(document_indexes) > 1}
+    duplicate_rows = {
+        row_number: document_indexes
+        for row_number, document_indexes in claimed_rows.items()
+        if len(document_indexes) > 1
+    }
     if duplicate_rows:
         document_by_index = {document.index: document for document in documents}
         for row_number, document_indexes in duplicate_rows.items():
@@ -152,7 +162,9 @@ def finalize_lot_documents(
                 if document is None:
                     continue
                 document.assignedRow = None
-                document.blockedReason = f"CSV row {row_number} is claimed by multiple documents"
+                document.blockedReason = (
+                    f"CSV row {row_number} is claimed by multiple documents"
+                )
                 issues.append(
                     LotIssueModel(
                         code="duplicate_row_assignment",
@@ -166,7 +178,9 @@ def finalize_lot_documents(
     return documents, issues, validation_blocked
 
 
-def _build_candidates(page: LotSeparationPageModel, csv_rows: list[LotCsvRow]) -> list[LotMatchCandidateModel]:
+def _build_candidates(
+    page: LotSeparationPageModel, csv_rows: list[LotCsvRow]
+) -> list[LotMatchCandidateModel]:
     page_compact = page.ocrTextCompact
     candidates: list[LotMatchCandidateModel] = []
 
@@ -183,7 +197,9 @@ def _build_candidates(page: LotSeparationPageModel, csv_rows: list[LotCsvRow]) -
         client_match = _best_fuzzy_occurrence(client_expected, page_compact)
         distributeur_strong = distributeur_match.score > 0.90
         client_strong = client_match.score > 0.90
-        qualifies = commande_exact and client_exact and distributeur_strong and client_strong
+        qualifies = (
+            commande_exact and client_exact and distributeur_strong and client_strong
+        )
 
         if not (commande_exact or client_exact or distributeur_strong or client_strong):
             continue
@@ -204,6 +220,8 @@ def _build_candidates(page: LotSeparationPageModel, csv_rows: list[LotCsvRow]) -
                     distributeur=row.distributeur,
                     client=row.client,
                     statut=row.statut,
+                    cote=row.cote,
+                    caisse=row.caisse,
                 ),
                 qualifies=qualifies,
                 score=score,
@@ -218,7 +236,9 @@ def _build_candidates(page: LotSeparationPageModel, csv_rows: list[LotCsvRow]) -
                         expected=row.commande,
                         normalized=" | ".join(commande_variants),
                         score=1.0 if commande_exact else 0.0,
-                        occurrence=_first_matching_variant(commande_variants, page_compact),
+                        occurrence=_first_matching_variant(
+                            commande_variants, page_compact
+                        ),
                     ),
                     LotMatchFieldResultModel(
                         field="client_number",
@@ -278,7 +298,9 @@ def _first_matching_variant(variants: list[str], page_compact: str) -> str | Non
     return None
 
 
-def _best_fuzzy_occurrence(expected_compact: str, page_compact: str) -> FuzzyOccurrenceResult:
+def _best_fuzzy_occurrence(
+    expected_compact: str, page_compact: str
+) -> FuzzyOccurrenceResult:
     if not expected_compact or not page_compact:
         return FuzzyOccurrenceResult(occurrence="", score=0.0)
 
@@ -289,7 +311,9 @@ def _best_fuzzy_occurrence(expected_compact: str, page_compact: str) -> FuzzyOcc
     if len(page_compact) <= target_length:
         return FuzzyOccurrenceResult(
             occurrence=page_compact,
-            score=round(difflib.SequenceMatcher(None, expected_compact, page_compact).ratio(), 6),
+            score=round(
+                difflib.SequenceMatcher(None, expected_compact, page_compact).ratio(), 6
+            ),
         )
 
     best_score = -1.0
@@ -304,4 +328,6 @@ def _best_fuzzy_occurrence(expected_compact: str, page_compact: str) -> FuzzyOcc
             if score >= 0.999:
                 break
 
-    return FuzzyOccurrenceResult(occurrence=best_occurrence, score=round(max(0.0, best_score), 6))
+    return FuzzyOccurrenceResult(
+        occurrence=best_occurrence, score=round(max(0.0, best_score), 6)
+    )

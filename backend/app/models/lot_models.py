@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +12,8 @@ class LotCsvRowModel(BaseModel):
     distributeur: str
     client: str
     statut: str
+    cote: str = ""
+    caisse: str = ""
 
 
 class LotSeparationPageModel(BaseModel):
@@ -90,3 +94,36 @@ class LotAnalysisResponseModel(BaseModel):
     startPages: list[int]
     documents: list[LotDocumentModel]
     issues: list[LotIssueModel]
+
+
+class LotFolderConfigModel(BaseModel):
+    templateId: str | None = None
+    paperThreshold: float | None = None
+
+
+class LotFolderModel(BaseModel):
+    name: str
+    lotNumber: int
+    status: Literal["ready", "incomplete"]
+    pdfPresent: bool
+    csvPresent: bool
+    sepPresent: bool
+    workbookPresent: bool
+    lastModified: str
+    errors: list[str] = Field(default_factory=list)
+    config: LotFolderConfigModel = Field(default_factory=LotFolderConfigModel)
+
+
+class LotFolderProcessRequestModel(BaseModel):
+    templateId: str
+    paperThreshold: float = 0.1
+    confirmRegenerate: bool = False
+
+
+class LotProcessSummaryModel(BaseModel):
+    generatedPdfCount: int
+    csvRowCount: int
+    autoAssignedCount: int
+    needsVerificationCount: int
+    ambiguousCount: int
+    missingPdfCount: int

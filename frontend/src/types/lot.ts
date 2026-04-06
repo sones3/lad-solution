@@ -1,130 +1,55 @@
-export interface LotCsvRow {
-  rowNumber: number
-  commande: string
-  clientNumber: string
-  distributeur: string
-  client: string
-  statut: string
+export interface LotFolderConfig {
+  templateId?: string | null
+  paperThreshold?: number | null
 }
 
-export interface LotSeparationPage {
-  pageNumber: number
-  separationMethod: string
-  foundCount: number
-  foundKeywords: string[]
-  missingKeywords: string[]
-  excludedPhraseFound: boolean
-  isNewDocument: boolean
-  binarizer: string
-  psm: number
-  fallbackUsed: boolean
-  ocrTextRaw: string
-  ocrTextNormalized: string
-  ocrTextCompact: string
-  score?: number | null
-  inlierRatio?: number | null
-  matchesUsed?: number | null
-  warnings: string[]
+export interface LotFolder {
+  name: string
+  lotNumber: number
+  status: 'ready' | 'incomplete'
+  pdfPresent: boolean
+  csvPresent: boolean
+  sepPresent: boolean
+  workbookPresent: boolean
+  lastModified: string
+  errors: string[]
+  config: LotFolderConfig
 }
 
-export interface LotIssue {
-  code: string
-  message: string
-  severity?: string
-  documentIndex?: number | null
-  pageNumber?: number | null
-  rowNumber?: number | null
-}
-
-export interface LotMatchFieldResult {
-  field: string
-  matched: boolean
-  expected: string
-  normalized: string
-  score?: number | null
-  occurrence?: string | null
-}
-
-export interface LotMatchCandidate {
-  row: LotCsvRow
-  qualifies: boolean
-  score: number
-  commandeExact: boolean
-  clientNumberExact: boolean
-  distributeurScore: number
-  clientScore: number
-  fieldResults: LotMatchFieldResult[]
-}
-
-export interface LotDocument {
-  index: number
-  startPage: number
-  endPage: number
-  pageCount: number
-  firstPageOcrRaw: string
-  firstPageOcrNormalized: string
-  firstPageOcrCompact: string
-  acceptedCandidateCount: number
-  candidates: LotMatchCandidate[]
-  assignedRow?: LotCsvRow | null
-  blockedReason?: string | null
-}
-
-export interface LotSummary {
-  totalPages: number
+export interface LotProcessSummary {
+  generatedPdfCount: number
   csvRowCount: number
-  detectedDocumentCount: number
-  matchedDocumentCount: number
-  validationBlocked: boolean
+  autoAssignedCount: number
+  needsVerificationCount: number
+  ambiguousCount: number
+  missingPdfCount: number
 }
 
-export interface LotAnalysisResponse {
-  summary: LotSummary
-  csvRows: LotCsvRow[]
-  pages: LotSeparationPage[]
-  startPages: number[]
-  documents: LotDocument[]
-  issues: LotIssue[]
-}
-
-export interface LotAnalyzeConfig {
-  separationMethod: 'ocr' | 'paper'
-  templateId?: string
-  paperThreshold: number
-  dpi: number
-  binarizer: 'auto' | 'wolf' | 'otsu'
-  lang: string
-  psm: number
-  oem: number
-  timeout: number
-  minKeywords: number
-  workers: number
-}
-
-export interface LotStartedEvent {
+export interface LotProcessStartedEvent {
   type: 'started'
-  csvRowCount: number
-  config: LotAnalyzeConfig
+  lotName: string
+  templateId: string
+  paperThreshold: number
 }
 
-export interface LotPageEvent {
-  type: 'page'
-  page: LotSeparationPage
+export interface LotProcessStepEvent {
+  type: 'step'
+  step: 'archive_previous_outputs' | 'split_source_pdf' | 'run_matching' | 'generate_workbook'
+  message: string
 }
 
-export interface LotDocumentEvent {
-  type: 'document'
-  document: LotDocument
-}
-
-export interface LotCompleteEvent {
+export interface LotProcessCompleteEvent {
   type: 'complete'
-  result: LotAnalysisResponse
+  summary: LotProcessSummary
 }
 
-export interface LotErrorEvent {
+export interface LotProcessErrorEvent {
   type: 'error'
   error: string
 }
 
-export type LotStreamEvent = LotStartedEvent | LotPageEvent | LotDocumentEvent | LotCompleteEvent | LotErrorEvent
+export type LotProcessEvent =
+  | LotProcessStartedEvent
+  | LotProcessStepEvent
+  | LotProcessCompleteEvent
+  | LotProcessErrorEvent

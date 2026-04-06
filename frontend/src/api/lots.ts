@@ -1,32 +1,25 @@
-import { buildApiUrl } from './client'
-import type { LotAnalysisResponse, LotAnalyzeConfig, LotStreamEvent } from '../types/lot'
+import { buildApiUrl, request } from './client'
+import type { LotFolder, LotProcessEvent, LotProcessSummary } from '../types/lot'
 
-export async function analyzeLot(
-  pdf: File,
-  csv: File,
-  config: LotAnalyzeConfig,
-  onEvent?: (event: LotStreamEvent) => void,
-): Promise<LotAnalysisResponse> {
-  const formData = new FormData()
-  formData.append('pdf', pdf)
-  formData.append('csv', csv)
-  formData.append('separationMethod', config.separationMethod)
-  if (config.templateId) {
-    formData.append('templateId', config.templateId)
-  }
-  formData.append('paperThreshold', String(config.paperThreshold))
-  formData.append('dpi', String(config.dpi))
-  formData.append('binarizer', config.binarizer)
-  formData.append('lang', config.lang)
-  formData.append('psm', String(config.psm))
-  formData.append('oem', String(config.oem))
-  formData.append('timeout', String(config.timeout))
-  formData.append('minKeywords', String(config.minKeywords))
-  formData.append('workers', String(config.workers))
+export function listLotFolders(): Promise<LotFolder[]> {
+  return request<LotFolder[]>('/lots/folders')
+}
 
-  const response = await fetch(buildApiUrl('/lots/analyze/stream'), {
+export async function processLotFolder(
+  lotName: string,
+  payload: {
+    templateId: string
+    paperThreshold: number
+    confirmRegenerate: boolean
+  },
+  onEvent?: (event: LotProcessEvent) => void,
+): Promise<LotProcessSummary> {
+  const response = await fetch(buildApiUrl(`/lots/folders/${encodeURIComponent(lotName)}/process/stream`), {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
@@ -49,7 +42,7 @@ export async function analyzeLot(
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let finalResult: LotAnalysisResponse | null = null
+  let finalSummary: LotProcessSummary | null = null
 
   while (true) {
     const { done, value } = await reader.read()
@@ -63,13 +56,13 @@ export async function analyzeLot(
         continue
       }
 
-      const event = JSON.parse(line) as LotStreamEvent
+      const event = JSON.parse(line) as LotProcessEvent
       onEvent?.(event)
       if (event.type === 'error') {
         throw new Error(event.error)
       }
       if (event.type === 'complete') {
-        finalResult = event.result
+        finalSummary = event.summary
       }
     }
 
@@ -78,9 +71,9 @@ export async function analyzeLot(
     }
   }
 
-  if (!finalResult) {
-    throw new Error('Lot analysis stream ended before completion')
+  if (!finalSummary) {
+    throw new Error('Lot processing stream ended before completion')
   }
 
-  return finalResult
+  return finalSummary
 }
