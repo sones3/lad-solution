@@ -154,27 +154,77 @@ button:disabled {
   padding: 0.85rem;
   display: grid;
   gap: 0.8rem;
+  min-height: 0;
 }
 
 .lot-list {
   display: grid;
+  align-content: start;
   gap: 0.7rem;
-  max-height: 70vh;
-  overflow: auto;
+  min-height: 0;
+  max-height: calc(100vh - 16rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.2rem;
+}
+
+.lot-list-head {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lot-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .lot-card {
   display: grid;
-  gap: 0.2rem;
-  text-align: left;
+  gap: 0.3rem;
   border: 1px solid var(--line);
   background: #faf8f2;
   color: var(--ink);
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0.85rem;
+  cursor: pointer;
+  min-height: 108px;
+  align-content: start;
 }
 
 .lot-card.active {
   border-color: #d68d67;
   background: var(--accent-soft);
+}
+
+.lot-card:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(18, 50, 74, 0.2);
+}
+
+.lot-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.lot-card strong,
+.lot-card span,
+.lot-card small {
+  color: inherit;
+}
+
+.lot-queue-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.lot-queue-toggle input {
+  margin: 0;
 }
 
 .lot-card small {
@@ -422,6 +472,49 @@ select {
 
 .summary-grid strong {
   font-size: 1.15rem;
+}
+
+.queue-results {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.queue-result {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem;
+  background: #faf9f5;
+}
+
+.queue-result.success {
+  border-color: #93c47d;
+  background: #eef7e7;
+}
+
+.queue-result.error {
+  border-color: #d68d67;
+  background: #fdf0ea;
+}
+
+.progress-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: #ece7dd;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #dd6d34, #f0b37d);
 }
 
 .compare-panel,

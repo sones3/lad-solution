@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from itertools import repeat
 import re
 import unicodedata
 
@@ -128,63 +129,87 @@ def iter_lot_pdf_pages_with_paper(
         template_image, (build_width, build_height), interpolation=cv2.INTER_AREA
     )
     total_pages = get_pdf_page_count(pdf_bytes)
-    for page_number in range(1, total_pages + 1):
-        page_image = render_pdf_page(pdf_bytes, page_number=page_number, dpi=config.dpi)
-        resized_page = cv2.resize(
-            page_image, (build_width, build_height), interpolation=cv2.INTER_AREA
-        )
-        alignment_result = align_document_with_paper_features(
-            template_image=resized_template,
-            template_features=template_features,
-            input_image=resized_page,
-            warp=False,
-        )
-        score = alignment_result.inlier_ratio if alignment_result.success else 0.0
-        matched = alignment_result.success and score >= config.paper_threshold
-        if matched:
-            ocr_page = ocr_lot_page(
-                page_number=page_number, image=page_image, config=config
-            )
-            yield LotSeparationPageModel(
-                pageNumber=page_number,
-                separationMethod="paper",
-                foundCount=ocr_page.foundCount,
-                foundKeywords=ocr_page.foundKeywords,
-                missingKeywords=ocr_page.missingKeywords,
-                excludedPhraseFound=ocr_page.excludedPhraseFound,
-                isNewDocument=True,
-                binarizer=ocr_page.binarizer,
-                psm=ocr_page.psm,
-                fallbackUsed=ocr_page.fallbackUsed,
-                ocrTextRaw=ocr_page.ocrTextRaw,
-                ocrTextNormalized=ocr_page.ocrTextNormalized,
-                ocrTextCompact=ocr_page.ocrTextCompact,
-                score=score,
-                inlierRatio=alignment_result.inlier_ratio,
-                matchesUsed=alignment_result.matches_used,
-                warnings=list(alignment_result.warnings),
-            )
-            continue
+    if total_pages <= 0:
+        return
 
-        yield LotSeparationPageModel(
+    workers = max(1, min(config.workers, total_pages))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        yield from executor.map(
+            _process_pdf_page_with_paper,
+            range(1, total_pages + 1),
+            repeat(pdf_bytes),
+            repeat(config),
+            repeat(resized_template),
+            repeat(template_features),
+            repeat(build_width),
+            repeat(build_height),
+        )
+
+
+def _process_pdf_page_with_paper(
+    page_number: int,
+    pdf_bytes: bytes,
+    config: LotSeparatorConfig,
+    resized_template: np.ndarray,
+    template_features: PaperTemplateFeatures,
+    build_width: int,
+    build_height: int,
+) -> LotSeparationPageModel:
+    page_image = render_pdf_page(pdf_bytes, page_number=page_number, dpi=config.dpi)
+    resized_page = cv2.resize(
+        page_image, (build_width, build_height), interpolation=cv2.INTER_AREA
+    )
+    alignment_result = align_document_with_paper_features(
+        template_image=resized_template,
+        template_features=template_features,
+        input_image=resized_page,
+        warp=False,
+    )
+    score = alignment_result.inlier_ratio if alignment_result.success else 0.0
+    matched = alignment_result.success and score >= config.paper_threshold
+    if matched:
+        ocr_page = ocr_lot_page(
+            page_number=page_number, image=page_image, config=config
+        )
+        return LotSeparationPageModel(
             pageNumber=page_number,
             separationMethod="paper",
-            foundCount=0,
-            foundKeywords=[],
-            missingKeywords=[],
-            excludedPhraseFound=False,
-            isNewDocument=False,
-            binarizer="none",
-            psm=config.psm,
-            fallbackUsed=False,
-            ocrTextRaw="",
-            ocrTextNormalized="",
-            ocrTextCompact="",
+            foundCount=ocr_page.foundCount,
+            foundKeywords=ocr_page.foundKeywords,
+            missingKeywords=ocr_page.missingKeywords,
+            excludedPhraseFound=ocr_page.excludedPhraseFound,
+            isNewDocument=True,
+            binarizer=ocr_page.binarizer,
+            psm=ocr_page.psm,
+            fallbackUsed=ocr_page.fallbackUsed,
+            ocrTextRaw=ocr_page.ocrTextRaw,
+            ocrTextNormalized=ocr_page.ocrTextNormalized,
+            ocrTextCompact=ocr_page.ocrTextCompact,
             score=score,
             inlierRatio=alignment_result.inlier_ratio,
             matchesUsed=alignment_result.matches_used,
             warnings=list(alignment_result.warnings),
         )
+
+    return LotSeparationPageModel(
+        pageNumber=page_number,
+        separationMethod="paper",
+        foundCount=0,
+        foundKeywords=[],
+        missingKeywords=[],
+        excludedPhraseFound=False,
+        isNewDocument=False,
+        binarizer="none",
+        psm=config.psm,
+        fallbackUsed=False,
+        ocrTextRaw="",
+        ocrTextNormalized="",
+        ocrTextCompact="",
+        score=score,
+        inlierRatio=alignment_result.inlier_ratio,
+        matchesUsed=alignment_result.matches_used,
+        warnings=list(alignment_result.warnings),
+    )
 
 
 def ocr_lot_page(

@@ -38,6 +38,14 @@ export interface LotProcessStepEvent {
   message: string
 }
 
+export interface LotProcessProgressEvent {
+  type: 'progress'
+  stage: 'analyze_source_pdf' | 'ocr_split_documents'
+  current: number
+  total: number
+  message: string
+}
+
 export interface LotProcessCompleteEvent {
   type: 'complete'
   summary: LotProcessSummary
@@ -51,5 +59,6 @@ export interface LotProcessErrorEvent {
 export type LotProcessEvent =
   | LotProcessStartedEvent
   | LotProcessStepEvent
+  | LotProcessProgressEvent
   | LotProcessCompleteEvent
   | LotProcessErrorEvent

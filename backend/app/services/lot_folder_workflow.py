@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import shutil
 import uuid
@@ -20,7 +21,7 @@ from app.services.lot_separator import (
 )
 from app.services.lot_splitter import write_split_pdfs
 from app.services.lot_workbook import write_reconciliation_workbook
-from app.services.pdf_render import render_pdf_page
+from app.services.pdf_render import get_pdf_page_count, render_pdf_page
 from app.services.template_feature_store import load_paper_template_features
 from app.services.lot_workspace import LotWorkspace, save_lot_workspace_config
 from app.storage.template_store import TemplateStore
@@ -71,6 +72,7 @@ def process_lot_workspace(
     )
     build_sep_dir = build_dir / "sep"
     build_workbook_path = build_dir / workspace.workbook_path.name
+    total_pages = get_pdf_page_count(pdf_bytes)
 
     yield {
         "type": "started",
@@ -90,15 +92,27 @@ def process_lot_workspace(
             "message": archive_message,
         }
 
-        page_diagnostics = list(
+        page_diagnostics = []
+        for page_index, page in enumerate(
             iter_lot_pdf_pages_with_paper(
                 pdf_bytes,
                 config=config,
                 template=template,
                 template_image=template_image,
                 template_features=template_features,
-            )
-        )
+            ),
+            start=1,
+        ):
+            page_diagnostics.append(page)
+            if _should_emit_progress(page_index, total_pages):
+                yield {
+                    "type": "progress",
+                    "stage": "analyze_source_pdf",
+                    "current": page_index,
+                    "total": total_pages,
+                    "message": f"Analyzed {page_index}/{total_pages} source pages",
+                }
+        page_diagnostics.sort(key=lambda page: page.pageNumber)
         start_pages = sorted(
             page.pageNumber for page in page_diagnostics if page.isNewDocument
         )
@@ -111,12 +125,36 @@ def process_lot_workspace(
             "message": f"Generated {len(split_documents)} split PDFs",
         }
 
-        reconciliation_documents = [
-            _build_reconciliation_document(
-                config=config, pdf_bytes=pdf_bytes, split_document=split_document
-            )
-            for split_document in split_documents
-        ]
+        reconciliation_workers = max(1, min(config.workers, len(split_documents) or 1))
+        with ThreadPoolExecutor(max_workers=reconciliation_workers) as executor:
+            futures = {
+                executor.submit(
+                    _build_reconciliation_document,
+                    config=config,
+                    pdf_bytes=pdf_bytes,
+                    split_document=split_document,
+                ): split_document.file_name
+                for split_document in split_documents
+            }
+            reconciliation_documents = []
+            completed_documents = 0
+            for future in as_completed(futures):
+                reconciliation_documents.append(future.result())
+                completed_documents += 1
+                if _should_emit_progress(completed_documents, len(split_documents)):
+                    yield {
+                        "type": "progress",
+                        "stage": "ocr_split_documents",
+                        "current": completed_documents,
+                        "total": len(split_documents),
+                        "message": f"OCR processed {completed_documents}/{len(split_documents)} split PDFs",
+                    }
+        reconciliation_documents.sort(key=lambda document: document.start_page)
+        yield {
+            "type": "step",
+            "step": "run_matching",
+            "message": f"Matching {len(csv_rows)} CSV rows against {len(reconciliation_documents)} split PDFs",
+        }
         reconciliation_result = build_reconciliation(
             csv_rows=csv_rows, documents=reconciliation_documents
         )
@@ -217,3 +255,15 @@ def _load_template_image(*, template: TemplateModel, template_store: TemplateSto
     if image is None:
         raise ValueError("Template image file does not exist")
     return image
+
+
+def _should_emit_progress(current: int, total: int) -> bool:
+    if total <= 0:
+        return False
+    if current == total:
+        return True
+    if total <= 20:
+        return True
+    if current <= 5:
+        return True
+    return current % 10 == 0
